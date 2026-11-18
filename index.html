@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>World Windows</title>
+  <meta name="description" content="Live views, local time and weather from the places that matter to you.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪟</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>World Windows</h1>
+      <p class="subtitle">The places that matter, right now.</p>
+    </div>
+    <div class="actions">
+      <button id="edit-button">Edit</button>
+      <button id="share-button" class="primary">Share</button>
+    </div>
+  </header>
+
+  <main id="wall"></main>
+
+  <dialog id="add-dialog">
+    <h2>Add a place</h2>
+
+    <div id="step-search">
+      <input id="search-input" type="search" placeholder="Type a city or town…" autocomplete="off">
+      <div id="search-results"></div>
+    </div>
+
+    <div id="step-camera" hidden>
+      <label class="field">Name on the tile
+        <input id="name-input" maxlength="60">
+      </label>
+      <p class="field-title">Camera</p>
+      <div id="cam-options"></div>
+    </div>
+
+    <div class="dialog-buttons">
+      <button id="add-cancel">Cancel</button>
+      <button id="add-confirm" class="primary" hidden>Add to wall</button>
+    </div>
+  </dialog>
+
+  <footer>
+    Weather &amp; place search: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
+    Finnish road cams: <a href="https://www.digitraffic.fi/" target="_blank" rel="noopener">Fintraffic Digitraffic</a> (CC BY 4.0) ·
+    Live streams belong to their YouTube channels.
+  </footer>
+
+  <script src="cams.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

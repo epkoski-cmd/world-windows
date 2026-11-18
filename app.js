@@ -1,0 +1,502 @@
+// World Windows — a wall of live views from the places that matter to you.
+//
+// How it fits together:
+//   cams.js   – the camera catalogue and the default wall
+//   app.js    – this file: builds the tiles, edit mode, sharing, weather
+//
+// The wall (the list of places) lives in the page address after "#w=",
+// so copying the address shares the whole wall. It's also remembered
+// in this browser, so the site opens with your wall next time.
+
+const wall = document.getElementById("wall");
+const STORAGE_KEY = "worldwindows.places";
+
+// ============================================================
+//  Small helpers
+// ============================================================
+
+// Distance in km between two points on Earth
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const a =
+    Math.sin(rad(lat2 - lat1) / 2) ** 2 +
+    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lon2 - lon1) / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(a));
+}
+
+// Pull the 11-character video id out of any kind of YouTube address
+function youtubeId(text) {
+  const m = String(text).match(/(?:v=|youtu\.be\/|\/live\/|\/embed\/|\/shorts\/)([\w-]{11})/);
+  if (m) return m[1];
+  return /^[\w-]{11}$/.test(text.trim()) ? text.trim() : null;
+}
+
+function el(tag, className, text) {
+  const e = document.createElement(tag);
+  if (className) e.className = className;
+  if (text !== undefined) e.textContent = text; // textContent: safe for any text
+  return e;
+}
+
+function toast(message) {
+  const t = el("div", "toast", message);
+  document.body.append(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ============================================================
+//  Cameras: turning a place's `cam` into something we can show
+// ============================================================
+//
+// A place's cam is one of:
+//   "tokyo-shibuya"                       – an id from the catalogue (cams.js)
+//   { yt: "VIDEO_ID" }                    – someone's own YouTube live link
+//   { fi: "C0350501", w: "…", a: lat, o: lon } – a Finnish road cam (Fintraffic)
+//   null                                  – no camera: show the sky instead
+
+function resolveCam(cam) {
+  if (!cam) return null;
+  if (typeof cam === "string") return CAMS.find((c) => c.id === cam) || null;
+  if (cam.yt && /^[\w-]{11}$/.test(cam.yt)) {
+    return { type: "youtube", video: cam.yt, caption: "YouTube live stream" };
+  }
+  if (cam.fi && /^C\d{7}$/.test(cam.fi)) {
+    return {
+      type: "image",
+      url: `https://weathercam.digitraffic.fi/${cam.fi}.jpg`,
+      caption: "Road cam · Fintraffic",
+      where: cam.w, lat: cam.a, lon: cam.o,
+    };
+  }
+  return null;
+}
+
+function cameraCaption(place, cam) {
+  if (!cam) return "No camera nearby · showing the sky";
+  let text = cam.caption;
+  if (cam.where) text += ` · ${cam.where}`;
+  if (cam.lat !== undefined) {
+    const km = distanceKm(place.lat, place.lon, cam.lat, cam.lon);
+    if (km >= 10) text +=` (${Math.round(km)} km away)`;
+  }
+  return text;
+}
+
+// ============================================================
+//  Saving and loading the wall
+// ============================================================
+
+// Places are packed small for the link: [name, lat, lon, timeZone, cam]
+function pack(places) {
+  const rows = places.map((p) => [p.name, +p.lat.toFixed(4), +p.lon.toFixed(4), p.tz, p.cam]);
+  const bytes = new TextEncoder().encode(JSON.stringify(rows));
+  let binary = "";
+  bytes.forEach((b) => (binary += String.fromCharCode(b)));
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function unpack(code) {
+  const binary = atob(code.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  const rows = JSON.parse(new TextDecoder().decode(bytes));
+  // Check everything, because links can come from anywhere
+  return rows
+    .filter((r) => Array.isArray(r) && typeof r[0] === "string" && isFinite(r[1]) && isFinite(r[2]))
+    .map(([name, lat, lon, tz, cam]) => ({
+      name: name.slice(0, 60), lat: +lat, lon: +lon,
+      tz: isValidTimeZone(tz) ? tz : "UTC",
+      cam: cam ?? null,
+    }));
+}
+
+function isValidTimeZone(tz) {
+  try { new Intl.DateTimeFormat("en", { timeZone: tz }); return true; }
+  catch { return false; }
+}
+
+function loadPlaces() {
+  const fromLink = location.hash.match(/#w=([\w-]+)/);
+  if (fromLink) {
+    try { return unpack(fromLink[1]); } catch (e) { console.warn("Bad link", e); }
+  }
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) return unpack(saved);
+  } catch (e) { /* storage blocked or broken: fall through */ }
+  return DEFAULT_PLACES.map((p) => ({ ...p }));
+}
+
+function savePlaces() {
+  const code = pack(places);
+  history.replaceState(null, "", `#w=${code}`);
+  try { localStorage.setItem(STORAGE_KEY, code); } catch (e) { /* fine */ }
+}
+
+let places = loadPlaces();
+
+// ============================================================
+//  Building the tiles
+// ============================================================
+
+function makeView(place, cam) {
+  const view = el("div", "view");
+
+  if (cam && cam.type === "youtube") {
+    // mute=1 is needed for autoplay; playsinline keeps it in the tile on phones
+    const iframe = document.createElement("iframe");
+    iframe.src = `https://www.youtube.com/embed/${cam.video}?autoplay=1&mute=1&playsinline=1&rel=0`;
+    iframe.allow = "autoplay; encrypted-media; picture-in-picture";
+    iframe.allowFullscreen = true;
+    iframe.loading = "lazy";
+    iframe.title = `Live view near ${place.name}`;
+    view.append(iframe);
+  } else if (cam && cam.type === "image") {
+    // Still camera: add ?t=… so the browser fetches a fresh copy, not a cached one
+    const img = document.createElement("img");
+    img.alt = `Camera near ${place.name}`;
+    const reload = () => (img.src = `${cam.url}?t=${Date.now()}`);
+    reload();
+    place.timers.push(setInterval(reload, 10 * 60 * 1000));
+    view.append(img, el("span", "badge", "Updates every 10 min"));
+  } else {
+    // No camera: a sky that follows day/night and the weather
+    view.classList.add("sky");
+    view.append(el("span", "sky-icon", "…"));
+  }
+  return view;
+}
+
+function makeTile(place, index) {
+  const cam = resolveCam(place.cam);
+  const tile = el("article", "tile");
+  place.timers = [];
+  place.view = makeView(place, cam);
+  tile.append(place.view);
+
+  const info = el("div", "info");
+  info.append(
+    el("div", "name", place.name),
+    el("div", "time", "--:--"),
+    el("div", "weather", "Loading weather…"),
+    el("div", "day-note"),
+    el("div", "sun"),
+    el("div", "caption", cameraCaption(place, cam)),
+  );
+
+  // Edit controls (only visible in edit mode)
+  const controls = el("div", "edit-controls");
+  const btn = (label, title, onClick, disabled) => {
+    const b = el("button", "", label);
+    b.title = title;
+    b.disabled = disabled;
+    b.addEventListener("click", onClick);
+    controls.append(b);
+  };
+  btn("◀", "Move left", () => movePlace(index, -1), index === 0);
+  btn("▶", "Move right", () => movePlace(index, +1), index === places.length - 1);
+  btn("✕ Remove", "Remove this place", () => removePlace(index));
+  info.append(controls);
+
+  tile.append(info);
+  place.el = info;
+  return tile;
+}
+
+function render() {
+  // Stop timers of the old tiles before throwing them away
+  places.forEach((p) => (p.timers || []).forEach(clearInterval));
+  wall.replaceChildren();
+
+  places.forEach((place, i) => wall.append(makeTile(place, i)));
+
+  // The "add a place" tile, shown in edit mode
+  const add = el("button", "tile add-tile");
+  add.append(el("span", "plus", "+"), el("span", "", "Add a place"));
+  add.addEventListener("click", openAddDialog);
+  wall.append(add);
+
+  if (places.length === 0 && !document.body.classList.contains("editing")) {
+    setEditing(true);
+  }
+
+  updateClocks();
+  updateWeather();
+}
+
+function movePlace(i, step) {
+  const [p] = places.splice(i, 1);
+  places.splice(i + step, 0, p);
+  savePlaces();
+  render();
+}
+
+function removePlace(i) {
+  places.splice(i, 1);
+  savePlaces();
+  render();
+}
+
+// ============================================================
+//  Header buttons: Edit and Share
+// ============================================================
+
+const editButton = document.getElementById("edit-button");
+const shareButton = document.getElementById("share-button");
+
+function setEditing(on) {
+  document.body.classList.toggle("editing", on);
+  editButton.textContent = on ? "Done" : "Edit";
+}
+
+editButton.addEventListener("click", () =>
+  setEditing(!document.body.classList.contains("editing")),
+);
+
+shareButton.addEventListener("click", async () => {
+  savePlaces(); // make sure the address has the latest wall
+  const link = location.href;
+  try {
+    await navigator.clipboard.writeText(link);
+    toast("Link copied! Anyone who opens it sees this wall.");
+  } catch {
+    prompt("Copy this link to share your wall:", link);
+  }
+});
+
+// ============================================================
+//  Adding a place
+// ============================================================
+
+const dialog = document.getElementById("add-dialog");
+const searchInput = document.getElementById("search-input");
+const searchResults = document.getElementById("search-results");
+const stepSearch = document.getElementById("step-search");
+const stepCamera = document.getElementById("step-camera");
+const nameInput = document.getElementById("name-input");
+const camOptions = document.getElementById("cam-options");
+const addConfirm = document.getElementById("add-confirm");
+let chosenCity = null;
+
+function openAddDialog() {
+  chosenCity = null;
+  searchInput.value = "";
+  searchResults.replaceChildren();
+  stepSearch.hidden = false;
+  stepCamera.hidden = true;
+  addConfirm.hidden = true;
+  dialog.showModal();
+  searchInput.focus();
+}
+
+document.getElementById("add-cancel").addEventListener("click", () => dialog.close());
+
+// Search cities as you type (waits until you pause typing for a moment)
+let searchTimer;
+searchInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(searchCities, 300);
+});
+
+async function searchCities() {
+  const q = searchInput.value.trim();
+  if (q.length < 2) return searchResults.replaceChildren();
+  try {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en`;
+    const data = await (await fetch(url)).json();
+    searchResults.replaceChildren();
+    for (const r of data.results || []) {
+      const b = el("button", "result");
+      b.append(
+        el("strong", "", r.name),
+        el("span", "", " " + [r.admin2, r.admin1, r.country].filter(Boolean).join(", ")),
+      );
+      b.addEventListener("click", () => chooseCity(r));
+      searchResults.append(b);
+    }
+    if (!data.results) searchResults.append(el("p", "hint", "No places found."));
+  } catch {
+    searchResults.replaceChildren(el("p", "hint", "Search failed. Check your connection."));
+  }
+}
+
+// Fintraffic road cameras (only fetched when someone adds a place in Finland)
+let finnishCamsPromise = null;
+function finnishRoadCams() {
+  finnishCamsPromise ??= fetch("https://tie.digitraffic.fi/api/weathercam/v1/stations")
+    .then((r) => r.json())
+    .then((d) =>
+      d.features
+        .filter((f) => f.properties.collectionStatus === "GATHERING")
+        .map((f) => {
+          // Skip presets ending in 09: those point down at the road surface
+          const preset = f.properties.presets.find((p) => p.inCollection && !p.id.endsWith("09"));
+          const [lon, lat] = f.geometry.coordinates;
+          // "vt13_Ostolahti" → "Ostolahti"
+          const where = f.properties.name.replace(/^[a-z]+\d*_/i, "").replace(/_/g, " ");
+          return preset && { fi: preset.id, w: where, a: lat, o: lon };
+        })
+        .filter(Boolean),
+    );
+  return finnishCamsPromise;
+}
+
+async function chooseCity(r) {
+  chosenCity = r;
+  stepSearch.hidden = true;
+  stepCamera.hidden = false;
+  addConfirm.hidden = false;
+  nameInput.value = r.name;
+  camOptions.replaceChildren(el("p", "hint", "Looking for cameras nearby…"));
+
+  // Collect camera suggestions, nearest first
+  const options = CAMS.map((c) => ({
+    value: c.id, cam: c, km: distanceKm(r.latitude, r.longitude, c.lat, c.lon),
+  }));
+  if (r.country_code === "FI") {
+    try {
+      for (const fc of await finnishRoadCams()) {
+        options.push({ value: fc, cam: resolveCam(fc), km: distanceKm(r.latitude, r.longitude, fc.a, fc.o) });
+      }
+    } catch { /* road cams unavailable right now */ }
+  }
+  options.sort((a, b) => a.km - b.km);
+  const nearby = options.filter((o) => o.km < 300).slice(0, 5);
+
+  camOptions.replaceChildren();
+  const radio = (label, sub, value, checked) => {
+    const row = el("label", "cam-option");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "cam";
+    input.checked = checked;
+    input.camValue = value;
+    row.append(input, el("span", "", label));
+    if (sub) row.append(el("small", "", sub));
+    camOptions.append(row);
+    return input;
+  };
+
+  nearby.forEach((o, i) =>
+    radio(`${o.cam.caption} · ${o.cam.where}`, `${Math.round(o.km)} km away`, o.value, i === 0),
+  );
+  const ytRadio = radio("My own YouTube live link", "Paste the address of a live stream", "youtube", false);
+  const ytInput = el("input", "yt-input");
+  ytInput.placeholder = "https://www.youtube.com/watch?v=…";
+  ytInput.addEventListener("focus", () => (ytRadio.checked = true));
+  camOptions.append(ytInput);
+  radio("No camera", "Shows the sky: day or night, and the weather", null, nearby.length === 0);
+}
+
+addConfirm.addEventListener("click", () => {
+  if (!chosenCity) return;
+  const picked = camOptions.querySelector("input[type=radio]:checked");
+  let cam = picked ? picked.camValue : null;
+  if (cam === "youtube") {
+    const id = youtubeId(camOptions.querySelector(".yt-input").value);
+    if (!id) return toast("That doesn't look like a YouTube link.");
+    cam = { yt: id };
+  }
+  places.push({
+    name: nameInput.value.trim() || chosenCity.name,
+    lat: chosenCity.latitude,
+    lon: chosenCity.longitude,
+    tz: chosenCity.timezone,
+    cam,
+  });
+  dialog.close();
+  savePlaces();
+  render();
+});
+
+// ============================================================
+//  Clocks
+// ============================================================
+
+function dayKey(date, timeZone) {
+  return date.toLocaleDateString("en-CA", { timeZone }); // e.g. "2026-11-18"
+}
+
+function updateClocks() {
+  const now = new Date();
+  const myDay = dayKey(now, Intl.DateTimeFormat().resolvedOptions().timeZone);
+
+  places.forEach((place) => {
+    const time = now.toLocaleTimeString("en-GB", { timeZone: place.tz, hour: "2-digit", minute: "2-digit" });
+    const theirDay = dayKey(now, place.tz);
+    let note = now.toLocaleDateString("en-GB", { timeZone: place.tz, weekday: "short" });
+    if (theirDay > myDay) note += " · tomorrow";
+    if (theirDay < myDay) note += " · yesterday";
+    place.el.querySelector(".time").textContent = time;
+    place.el.querySelector(".day-note").textContent = note;
+  });
+}
+
+setInterval(updateClocks, 15 * 1000);
+
+// ============================================================
+//  Weather (Open-Meteo: free, no key needed)
+// ============================================================
+
+// WMO weather codes → emoji + words
+const WEATHER = {
+  0: ["☀️", "Clear"], 1: ["🌤️", "Mostly clear"], 2: ["⛅", "Partly cloudy"], 3: ["☁️", "Cloudy"],
+  45: ["🌫️", "Fog"], 48: ["🌫️", "Icy fog"],
+  51: ["🌦️", "Light drizzle"], 53: ["🌦️", "Drizzle"], 55: ["🌧️", "Heavy drizzle"],
+  56: ["🌧️", "Freezing drizzle"], 57: ["🌧️", "Freezing drizzle"],
+  61: ["🌧️", "Light rain"], 63: ["🌧️", "Rain"], 65: ["🌧️", "Heavy rain"],
+  66: ["🌧️", "Freezing rain"], 67: ["🌧️", "Freezing rain"],
+  71: ["🌨️", "Light snow"], 73: ["🌨️", "Snow"], 75: ["❄️", "Heavy snow"], 77: ["🌨️", "Snow grains"],
+  80: ["🌦️", "Showers"], 81: ["🌧️", "Showers"], 82: ["⛈️", "Heavy showers"],
+  85: ["🌨️", "Snow showers"], 86: ["❄️", "Snow showers"],
+  95: ["⛈️", "Thunderstorm"], 96: ["⛈️", "Thunderstorm, hail"], 99: ["⛈️", "Thunderstorm, hail"],
+};
+
+const hhmm = (isoLocal) => isoLocal.slice(11, 16); // "2026-11-18T08:41" → "08:41"
+
+async function updateWeather() {
+  if (places.length === 0) return;
+  const forPlaces = places; // the list may change while we wait
+  const lats = forPlaces.map((p) => p.lat).join(",");
+  const lons = forPlaces.map((p) => p.lon).join(",");
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}` +
+    `&current=temperature_2m,weather_code,is_day&daily=sunrise,sunset&forecast_days=2&timezone=auto`;
+
+  try {
+    let data = await (await fetch(url)).json();
+    if (!Array.isArray(data)) data = [data]; // a single place comes back as one object
+    if (forPlaces !== places) return; // wall changed meanwhile; a newer update is coming
+
+    data.forEach((w, i) => {
+      const place = forPlaces[i];
+      let [icon, words] = WEATHER[w.current.weather_code] || ["", "—"];
+      const isDay = w.current.is_day === 1;
+      // No sun at night: clear / mostly clear skies get a moon instead
+      if (!isDay && w.current.weather_code <= 1) icon = "🌙";
+      place.el.querySelector(".weather").textContent = `${icon} ${Math.round(w.current.temperature_2m)}°C · ${words}`;
+
+      // After sunset, the next sunrise is tomorrow's (index 1)
+      const nextSunrise = w.current.time > w.daily.sunrise[0] ? w.daily.sunrise[1] : w.daily.sunrise[0];
+      const sun = place.el.querySelector(".sun");
+      sun.className = `sun ${isDay ? "day" : "night"}`;
+      sun.textContent = isDay ? `☀ Sunset ${hhmm(w.daily.sunset[0])}` : `☾ Sunrise ${hhmm(nextSunrise)}`;
+
+      // Sky tiles (no camera) follow day/night and show the weather icon
+      if (place.view.classList.contains("sky")) {
+        place.view.classList.toggle("night", !isDay);
+        place.view.querySelector(".sky-icon").textContent = icon;
+      }
+    });
+  } catch (err) {
+    console.error("Weather failed:", err);
+    forPlaces.forEach((p) => (p.el.querySelector(".weather").textContent = "Weather unavailable"));
+  }
+}
+
+setInterval(updateWeather, 15 * 60 * 1000);
+
+// ============================================================
+//  Start
+// ============================================================
+
+render();
