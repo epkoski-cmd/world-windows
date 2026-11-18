@@ -142,14 +142,7 @@ function makeView(place, cam) {
   const view = el("div", "view");
 
   if (cam && cam.type === "youtube") {
-    // mute=1 is needed for autoplay; playsinline keeps it in the tile on phones
-    const iframe = document.createElement("iframe");
-    iframe.src = `https://www.youtube.com/embed/${cam.video}?autoplay=1&mute=1&playsinline=1&rel=0`;
-    iframe.allow = "autoplay; encrypted-media; picture-in-picture";
-    iframe.allowFullscreen = true;
-    iframe.loading = "lazy";
-    iframe.title = `Live view near ${place.name}`;
-    view.append(iframe);
+    showYoutubePreview(view, place, cam);
   } else if (cam && cam.type === "image") {
     // Still camera: add ?t=… so the browser fetches a fresh copy, not a cached one
     const img = document.createElement("img");
@@ -164,6 +157,61 @@ function makeView(place, cam) {
     view.append(el("span", "sky-icon", "…"));
   }
   return view;
+}
+
+// YouTube tiles start as a still preview. The video (and any ads the stream
+// owner has switched on) only loads when someone presses "Watch live".
+function showYoutubePreview(view, place, cam) {
+  (place.timers || []).forEach(clearInterval);
+  place.timers = [];
+  view.replaceChildren();
+
+  // YouTube keeps a preview frame of each live stream, updated every few minutes.
+  // Try the sharp version first; not every stream has one, so fall back.
+  const img = document.createElement("img");
+  img.alt = `Preview of the live view near ${place.name}`;
+  const base = `https://i.ytimg.com/vi/${cam.video}`;
+  const load = () => {
+    img.dataset.fallback = "";
+    img.src = `${base}/maxresdefault_live.jpg?t=${Date.now()}`;
+  };
+  img.addEventListener("error", () => {
+    if (!img.dataset.fallback) {
+      img.dataset.fallback = "1";
+      img.src = `${base}/hqdefault_live.jpg?t=${Date.now()}`;
+    }
+  });
+  load();
+  place.timers.push(setInterval(load, 5 * 60 * 1000));
+
+  const play = el("button", "watch-live", "▶ Watch live");
+  play.addEventListener("click", () => playYoutube(view, place, cam));
+
+  // Many channels show a promo picture instead of the current view
+  // (a sunny summer photo at midnight). Dim those so nobody is fooled.
+  const badge = cam.livePreview
+    ? el("span", "badge", "Preview · updates every 5 min")
+    : el("span", "badge", "Channel picture · not the current view");
+  if (!cam.livePreview) img.classList.add("promo");
+
+  view.append(img, badge, play);
+}
+
+function playYoutube(view, place, cam) {
+  (place.timers || []).forEach(clearInterval);
+  place.timers = [];
+  // mute=1 is needed for autoplay; playsinline keeps it in the tile on phones
+  const iframe = document.createElement("iframe");
+  iframe.src = `https://www.youtube.com/embed/${cam.video}?autoplay=1&mute=1&playsinline=1&rel=0`;
+  iframe.allow = "autoplay; encrypted-media; picture-in-picture";
+  iframe.allowFullscreen = true;
+  iframe.title = `Live view near ${place.name}`;
+
+  const close = el("button", "close-live", "✕ Stop");
+  close.title = "Stop the video and go back to the preview";
+  close.addEventListener("click", () => showYoutubePreview(view, place, cam));
+
+  view.replaceChildren(iframe, close);
 }
 
 function makeTile(place, index) {

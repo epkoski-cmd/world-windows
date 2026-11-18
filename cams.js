@@ -11,7 +11,9 @@
 //   where    – where the camera actually is
 //   lat, lon – the camera's location, used to measure distance
 //   caption  – what it shows and whose camera it is
-//   type     – "youtube" (live stream, needs `video`)
+//   type     – "youtube" (live stream, needs `video`;
+//              add `livePreview: true` if YouTube's preview picture of the
+//              stream shows the real current view, not a promo picture)
 //              or "image" (still picture reloaded every 10 min, needs `url`)
 //
 // To add a camera: find a YouTube live stream, copy the part after
@@ -20,11 +22,11 @@
 const CAMS = [
   // ---------- Finland ----------
   { id: "helsinki-lauttasaari", where: "Lauttasaari, Helsinki", lat: 60.1555, lon: 24.8705,
-    caption: "Sea view · Larukite", type: "youtube", video: "o45aDp57IM8" },
+    caption: "Sea view · Larukite", type: "youtube", video: "o45aDp57IM8", livePreview: true },
   { id: "espoo-nuuksio", where: "Nuuksio, Espoo", lat: 60.29, lon: 24.55,
     caption: "Forest feeding spot · Feel The Nature", type: "youtube", video: "JWta8Urznhw" },
   { id: "helsinki-south-harbour", where: "South Harbour, Helsinki", lat: 60.1665, lon: 24.9565,
-    caption: "Harbour · Port of Helsinki", type: "youtube", video: "CvOB-Is_yYU" },
+    caption: "Harbour · Port of Helsinki", type: "youtube", video: "CvOB-Is_yYU", livePreview: true },
   { id: "ristiina-road13", where: "Road 13, Ostolahti", lat: 61.4533, lon: 27.2646,
     caption: "Road cam · Fintraffic", type: "image", url: "https://weathercam.digitraffic.fi/C0350501.jpg" },
 
@@ -36,7 +38,7 @@ const CAMS = [
 
   // ---------- Spain ----------
   { id: "rincon-victoria-beach", where: "Rincón de la Victoria", lat: 36.717, lon: -4.278,
-    caption: "Beach cam · Malaga Live Cam", type: "youtube", video: "Ib0xbFBU9Wg" },
+    caption: "Beach cam · Malaga Live Cam", type: "youtube", video: "Ib0xbFBU9Wg", livePreview: true },
   { id: "sabinillas-beach", where: "Sabinillas, Manilva", lat: 36.369, lon: -5.228,
     caption: "Beach cam · SabinillasBeach", type: "youtube", video: "9nOjBJE9AUU" },
 
@@ -48,7 +50,7 @@ const CAMS = [
 
   // ---------- USA ----------
   { id: "weehawken-lincoln-harbor", where: "Lincoln Harbor, Weehawken", lat: 40.7616, lon: -74.0237,
-    caption: "Hudson waterfront · EarthCam", type: "youtube", video: "sixP_dAJ8D4" },
+    caption: "Hudson waterfront · EarthCam", type: "youtube", video: "sixP_dAJ8D4", livePreview: true },
   { id: "seaside-heights", where: "Seaside Heights, NJ", lat: 39.944, lon: -74.073,
     caption: "Beach & boardwalk · EarthCam", type: "youtube", video: "OBgCrw-IyhE" },
   { id: "sf-bay-bridge", where: "Bay Bridge, San Francisco", lat: 37.7983, lon: -122.3778,
