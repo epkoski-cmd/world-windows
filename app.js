@@ -626,6 +626,16 @@ async function chooseCity(r) {
     return input;
   };
 
+  // Our camera list is still small, so say so instead of silently showing nothing
+  if (nearby.length === 0) {
+    camOptions.append(el("p", "notice",
+      `No cameras near ${r.name} in our list yet. More are coming. For now, ` +
+      `add it without a camera (the tile shows the sky and weather), or paste a YouTube live link.`));
+  } else if (nearby[0].km > 50) {
+    camOptions.append(el("p", "notice",
+      `The closest cameras we know are ${Math.round(nearby[0].km)} km or more from ${r.name}.`));
+  }
+
   nearby.forEach((o, i) =>
     radio(`${o.cam.caption} · ${o.cam.where}`, `${Math.round(o.km)} km away`, o.value, i === 0),
   );

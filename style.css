@@ -286,3 +286,6 @@ dialog input {
 
 /* Restore tile waiting for its confirming second tap */
 body.editing .add-tile.armed { border-color: #2a6fdb; color: var(--text); background: #1d2a40; }
+
+/* Note in the add-place window when cameras are missing or far away */
+.notice { margin: 0 0 4px; padding: 10px 12px; border-radius: 8px; background: #2b2615; border: 1px solid #5c4d1f; color: #f0dca0; font-size: 0.9rem; }
