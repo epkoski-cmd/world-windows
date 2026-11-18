@@ -29,6 +29,10 @@ const CAMS = [
     caption: "Harbour · Port of Helsinki", type: "youtube", video: "CvOB-Is_yYU", livePreview: true },
   { id: "ristiina-road13", where: "Road 13, Ostolahti", lat: 61.4533, lon: 27.2646,
     caption: "Road cam · Fintraffic", type: "image", url: "https://weathercam.digitraffic.fi/C0350501.jpg" },
+  { id: "kirkkonummi-inkila", where: "Road 50, Inkilä, Kirkkonummi", lat: 60.138, lon: 24.5345,
+    caption: "Road cam · Fintraffic", type: "image", url: "https://weathercam.digitraffic.fi/C0158401.jpg" },
+  { id: "toholampi-road63", where: "Road 63, Toholampi", lat: 63.7674, lon: 24.2451,
+    caption: "Road cam · Fintraffic", type: "image", url: "https://weathercam.digitraffic.fi/C1053902.jpg" },
 
   // ---------- Estonia ----------
   { id: "kuressaare-square", where: "Kuressaare town square", lat: 58.2528, lon: 22.4845,
@@ -61,11 +65,13 @@ const CAMS = [
 // (before they edit anything or open a shared link).
 // cam can be a catalogue id, or null for "no camera".
 const DEFAULT_PLACES = [
-  { name: "Espoo",         lat: 60.2055, lon: 24.6559,   tz: "Europe/Helsinki",     cam: "helsinki-lauttasaari" },
-  { name: "Ristiina",      lat: 61.5059, lon: 27.2563,   tz: "Europe/Helsinki",     cam: "ristiina-road13" },
-  { name: "Tokyo",         lat: 35.6595, lon: 139.7005,  tz: "Asia/Tokyo",          cam: "tokyo-shibuya" },
-  { name: "Seoul",         lat: 37.5665, lon: 126.978,   tz: "Asia/Seoul",          cam: "seoul-han-river" },
-  { name: "Torremolinos",  lat: 36.6219, lon: -4.4999,   tz: "Europe/Madrid",       cam: "rincon-victoria-beach" },
-  { name: "Jersey City",   lat: 40.7178, lon: -74.0431,  tz: "America/New_York",    cam: "weehawken-lincoln-harbor" },
-  { name: "San Francisco", lat: 37.7749, lon: -122.4194, tz: "America/Los_Angeles", cam: "sf-bay-bridge" },
+  { name: "Helsinki",                lat: 60.1695, lon: 24.9355, tz: "Europe/Helsinki",  cam: "helsinki-south-harbour" },
+  { name: "Espoo",                   lat: 60.2055, lon: 24.6559, tz: "Europe/Helsinki",  cam: "helsinki-lauttasaari" },
+  { name: "Sundsberg, Kirkkonummi",  lat: 60.1539, lon: 24.5696, tz: "Europe/Helsinki",  cam: "kirkkonummi-inkila" },
+  { name: "Ristiina",                lat: 61.5059, lon: 27.2563, tz: "Europe/Helsinki",  cam: "ristiina-road13" },
+  { name: "Toholammi",               lat: 63.7667, lon: 24.25,   tz: "Europe/Helsinki",  cam: "toholampi-road63" },
+  { name: "Kuressaare",              lat: 58.2528, lon: 22.4845, tz: "Europe/Tallinn",   cam: "kuressaare-square" },
+  { name: "Torremolinos",            lat: 36.6219, lon: -4.4999, tz: "Europe/Madrid",    cam: "rincon-victoria-beach" },
+  { name: "Calahonda",               lat: 36.4928, lon: -4.7172, tz: "Europe/Madrid",    cam: "sabinillas-beach" },
+  { name: "Jersey City",             lat: 40.7178, lon: -74.0431, tz: "America/New_York", cam: "weehawken-lincoln-harbor" },
 ];

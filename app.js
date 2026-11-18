@@ -1,4 +1,4 @@
-// World Windows — a wall of live views from the places that matter to you.
+// Family World Window — a wall of live views from the places that matter to you.
 //
 // How it fits together:
 //   cams.js   – the camera catalogue and the default wall
