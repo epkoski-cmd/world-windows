@@ -283,3 +283,6 @@ dialog input {
 }
 .empty-wall p { margin: 0; font-size: 1.1rem; }
 .empty-wall button { min-width: 220px; }
+
+/* Restore tile waiting for its confirming second tap */
+body.editing .add-tile.armed { border-color: #2a6fdb; color: var(--text); background: #1d2a40; }

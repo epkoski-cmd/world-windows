@@ -329,8 +329,18 @@ function render() {
 
   // The "restore family places" tile, shown in edit mode
   const restore = el("button", "tile add-tile");
-  restore.append(el("span", "plus", "↺"), el("span", "", "Restore family places"));
-  restore.addEventListener("click", restoreFamilyPlaces);
+  const restoreLabel = el("span", "", "Restore family places");
+  restore.append(el("span", "plus", "↺"), restoreLabel);
+  // Ask for a second tap instead of a pop-up: some phone browsers block pop-ups silently
+  restore.addEventListener("click", () => {
+    if (restore.classList.contains("armed")) return restoreFamilyPlaces();
+    restore.classList.add("armed");
+    restoreLabel.textContent = "Tap again to replace this wall";
+    setTimeout(() => {
+      restore.classList.remove("armed");
+      restoreLabel.textContent = "Restore family places";
+    }, 4000);
+  });
   wall.append(restore);
 
   // An empty wall: say so, and offer the way back (in and out of edit mode)
@@ -351,8 +361,6 @@ function render() {
 }
 
 function restoreFamilyPlaces() {
-  const hadPlaces = places.length > 0;
-  if (hadPlaces && !confirm("Replace this wall with the family places?")) return;
   places = familyPlaces();
   savePlaces();
   render();
