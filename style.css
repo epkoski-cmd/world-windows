@@ -271,3 +271,15 @@ dialog input {
 #shared-banner p { margin: 0; }
 .banner-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (min-width: 1600px) { #shared-banner { margin: 8px auto 0; } }
+
+/* ---------- Empty wall ---------- */
+.empty-wall {
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 16px;
+  text-align: center;
+}
+.empty-wall p { margin: 0; font-size: 1.1rem; }
+.empty-wall button { min-width: 220px; }

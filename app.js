@@ -126,6 +126,11 @@ function rememberAsMine(code) {
 // Edits then only change the link, never this browser's own saved wall.
 let viewingShared = false;
 
+// A fresh copy of the default wall from cams.js
+function familyPlaces() {
+  return DEFAULT_PLACES.map((p) => ({ ...p }));
+}
+
 function loadPlaces() {
   viewingShared = false;
   const fromLink = location.hash.match(/#w=([\w-]+)/);
@@ -143,9 +148,12 @@ function loadPlaces() {
     } catch (e) { console.warn("Bad link", e); }
   }
   if (mine) {
-    try { return unpack(mine); } catch (e) { /* broken: fall through */ }
+    try {
+      const saved = unpack(mine);
+      if (saved.length > 0) return saved; // an emptied wall falls back to the family places
+    } catch (e) { /* broken: fall through */ }
   }
-  return DEFAULT_PLACES.map((p) => ({ ...p }));
+  return familyPlaces();
 }
 
 function savePlaces() {
@@ -174,7 +182,8 @@ document.getElementById("save-shared").addEventListener("click", () => {
 document.getElementById("back-to-mine").addEventListener("click", () => {
   const mine = savedCode();
   viewingShared = false;
-  places = mine ? unpack(mine) : DEFAULT_PLACES.map((p) => ({ ...p }));
+  places = mine ? unpack(mine) : familyPlaces();
+  if (places.length === 0) places = familyPlaces();
   history.replaceState(null, "", mine ? `#w=${mine}` : location.pathname);
   render();
 });
@@ -318,13 +327,36 @@ function render() {
   add.addEventListener("click", openAddDialog);
   wall.append(add);
 
-  if (places.length === 0 && !document.body.classList.contains("editing")) {
-    setEditing(true);
+  // The "restore family places" tile, shown in edit mode
+  const restore = el("button", "tile add-tile");
+  restore.append(el("span", "plus", "↺"), el("span", "", "Restore family places"));
+  restore.addEventListener("click", restoreFamilyPlaces);
+  wall.append(restore);
+
+  // An empty wall: say so, and offer the way back (in and out of edit mode)
+  if (places.length === 0) {
+    const empty = el("div", "tile empty-wall");
+    empty.append(el("p", "", "This wall is empty."));
+    const again = el("button", "primary", "↺ Restore family places");
+    again.addEventListener("click", restoreFamilyPlaces);
+    const addOne = el("button", "", "+ Add a place");
+    addOne.addEventListener("click", openAddDialog);
+    empty.append(again, addOne);
+    wall.prepend(empty);
   }
 
   updateBanner();
   updateClocks();
   updateWeather();
+}
+
+function restoreFamilyPlaces() {
+  const hadPlaces = places.length > 0;
+  if (hadPlaces && !confirm("Replace this wall with the family places?")) return;
+  places = familyPlaces();
+  savePlaces();
+  render();
+  toast("Family places restored.");
 }
 
 function movePlace(i, step) {
