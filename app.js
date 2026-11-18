@@ -114,25 +114,77 @@ function isValidTimeZone(tz) {
   catch { return false; }
 }
 
+// The wall this browser has saved as "mine" (or null if none yet)
+function savedCode() {
+  try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
+}
+function rememberAsMine(code) {
+  try { localStorage.setItem(STORAGE_KEY, code); } catch { /* storage blocked: fine */ }
+}
+
+// true while looking at someone else's wall from a shared link.
+// Edits then only change the link, never this browser's own saved wall.
+let viewingShared = false;
+
 function loadPlaces() {
+  viewingShared = false;
   const fromLink = location.hash.match(/#w=([\w-]+)/);
+  const mine = savedCode();
+
   if (fromLink) {
-    try { return unpack(fromLink[1]); } catch (e) { console.warn("Bad link", e); }
+    try {
+      const shared = unpack(fromLink[1]);
+      if (!mine) {
+        rememberAsMine(fromLink[1]); // first visit: the shared wall becomes theirs
+      } else if (fromLink[1] !== mine) {
+        viewingShared = true; // they already have their own wall: keep it safe
+      }
+      return shared;
+    } catch (e) { console.warn("Bad link", e); }
   }
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return unpack(saved);
-  } catch (e) { /* storage blocked or broken: fall through */ }
+  if (mine) {
+    try { return unpack(mine); } catch (e) { /* broken: fall through */ }
+  }
   return DEFAULT_PLACES.map((p) => ({ ...p }));
 }
 
 function savePlaces() {
   const code = pack(places);
   history.replaceState(null, "", `#w=${code}`);
-  try { localStorage.setItem(STORAGE_KEY, code); } catch (e) { /* fine */ }
+  if (!viewingShared) rememberAsMine(code);
 }
 
 let places = loadPlaces();
+
+// ---------- The "you're viewing a shared wall" banner ----------
+
+const banner = document.getElementById("shared-banner");
+
+function updateBanner() {
+  banner.hidden = !viewingShared;
+}
+
+document.getElementById("save-shared").addEventListener("click", () => {
+  viewingShared = false;
+  savePlaces();
+  updateBanner();
+  toast("Saved! This is now your wall in this browser.");
+});
+
+document.getElementById("back-to-mine").addEventListener("click", () => {
+  const mine = savedCode();
+  viewingShared = false;
+  places = mine ? unpack(mine) : DEFAULT_PLACES.map((p) => ({ ...p }));
+  history.replaceState(null, "", mine ? `#w=${mine}` : location.pathname);
+  render();
+});
+
+// Pasting a different link into the same tab only changes the "#…" part,
+// which doesn't reload the page, so reload the wall ourselves.
+window.addEventListener("hashchange", () => {
+  places = loadPlaces();
+  render();
+});
 
 // ============================================================
 //  Building the tiles
@@ -175,12 +227,15 @@ function showYoutubePreview(view, place, cam) {
     img.dataset.fallback = "";
     img.src = `${base}/maxresdefault_live.jpg?t=${Date.now()}`;
   };
-  img.addEventListener("error", () => {
+  const fallback = () => {
     if (!img.dataset.fallback) {
       img.dataset.fallback = "1";
       img.src = `${base}/hqdefault_live.jpg?t=${Date.now()}`;
     }
-  });
+  };
+  img.addEventListener("error", fallback);
+  // A missing picture sometimes arrives as a tiny 120×90 grey placeholder instead of an error
+  img.addEventListener("load", () => { if (img.naturalWidth <= 120) fallback(); });
   load();
   place.timers.push(setInterval(load, 5 * 60 * 1000));
 
@@ -267,6 +322,7 @@ function render() {
     setEditing(true);
   }
 
+  updateBanner();
   updateClocks();
   updateWeather();
 }
