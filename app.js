@@ -4,9 +4,9 @@
 //   cams.js   – the camera catalogue and the default wall
 //   app.js    – this file: builds the tiles, edit mode, sharing, weather
 //
-// The wall (the list of places) lives in the page address after "#w=",
-// so copying the address shares the whole wall. It's also remembered
-// in this browser, so the site opens with your wall next time.
+// Your wall (the list of places) is remembered in this browser.
+// The Share button gives the plain site address for the family wall,
+// or a short readable link (#p=Jersey+City/Kuressaare) for any other wall.
 
 const wall = document.getElementById("wall");
 const STORAGE_KEY = "worldwindows.places";
@@ -114,6 +114,79 @@ function isValidTimeZone(tz) {
   catch { return false; }
 }
 
+// ---------- Short, readable share links ----------
+//
+// A wall in a link looks like:   #p=Jersey+City/Kuressaare/Calahonda
+//   • places are separated by "/"
+//   • a family place (from DEFAULT_PLACES) is just its name, spaces as "+"
+//   • any other place is  name,lat,lon,time.zone,camera
+//     e.g.  Puumala,61.52,28.18,Europe.Helsinki,fi.C1053902
+//     (the "/" in time zones is written as ".", cameras are a catalogue id,
+//      yt.VIDEO_ID, fi.FINTRAFFIC_ID, or empty for no camera)
+// Characters like * _ ~ are avoided: WhatsApp would turn them into formatting.
+
+const enc = (s) => encodeURIComponent(s).replace(/%20/g, "+");
+const dec = (s) => decodeURIComponent(s.replace(/\+/g, " "));
+
+function sameCam(a, b) {
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+}
+
+function isFamilyPlace(p) {
+  return DEFAULT_PLACES.some((d) => d.name === p.name && sameCam(d.cam, p.cam));
+}
+
+function camToText(cam) {
+  if (!cam) return "";
+  if (typeof cam === "string") return cam;
+  if (cam.yt) return `yt.${cam.yt}`;
+  if (cam.fi) return `fi.${cam.fi}`;
+  return "";
+}
+
+function camFromText(t) {
+  if (!t) return null;
+  if (t.startsWith("yt.")) return { yt: t.slice(3) };
+  if (t.startsWith("fi.")) return { fi: t.slice(3) };
+  return t; // catalogue id
+}
+
+function toLink(places) {
+  return places
+    .map((p) =>
+      isFamilyPlace(p)
+        ? enc(p.name)
+        : [enc(p.name), p.lat.toFixed(2), p.lon.toFixed(2), p.tz.replace(/\//g, "."), camToText(p.cam)].join(","),
+    )
+    .join("/");
+}
+
+function fromLink(text) {
+  return text.split("/").filter(Boolean).map((token) => {
+    const [name, lat, lon, tz, cam] = token.split(",").map(dec);
+    if (lat === undefined) {
+      const family = DEFAULT_PLACES.find((d) => d.name.toLowerCase() === name.toLowerCase());
+      return family ? { ...family } : null;
+    }
+    if (!isFinite(lat) || !isFinite(lon)) return null;
+    const zone = (tz || "").replace(/\./g, "/");
+    return {
+      name: name.slice(0, 60), lat: +lat, lon: +lon,
+      tz: isValidTimeZone(zone) ? zone : "UTC",
+      cam: camFromText(cam),
+    };
+  }).filter(Boolean);
+}
+
+// The address to share: the plain site for the family wall, otherwise a short link
+function shareAddress() {
+  const base = location.origin + location.pathname;
+  const isFamilyWall =
+    places.length === DEFAULT_PLACES.length && places.every((p, i) =>
+      p.name === DEFAULT_PLACES[i].name && sameCam(p.cam, DEFAULT_PLACES[i].cam));
+  return isFamilyWall ? base : `${base}#p=${toLink(places)}`;
+}
+
 // The wall this browser has saved as "mine" (or null if none yet)
 function savedCode() {
   try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
@@ -131,35 +204,56 @@ function familyPlaces() {
   return DEFAULT_PLACES.map((p) => ({ ...p }));
 }
 
-function loadPlaces() {
-  viewingShared = false;
-  const fromLink = location.hash.match(/#w=([\w-]+)/);
-  const mine = savedCode();
-
-  if (fromLink) {
-    try {
-      const shared = unpack(fromLink[1]);
-      if (!mine) {
-        rememberAsMine(fromLink[1]); // first visit: the shared wall becomes theirs
-      } else if (fromLink[1] !== mine) {
-        viewingShared = true; // they already have their own wall: keep it safe
-      }
-      return shared;
-    } catch (e) { console.warn("Bad link", e); }
-  }
-  if (mine) {
-    try {
-      const saved = unpack(mine);
-      if (saved.length > 0) return saved; // an emptied wall falls back to the family places
-    } catch (e) { /* broken: fall through */ }
-  }
-  return familyPlaces();
+// The wall in the address, if there is one: new short links (#p=…)
+// or the older long ones (#w=…) that may already have been shared
+function wallFromAddress() {
+  try {
+    const short = location.hash.match(/^#p=(.+)$/);
+    if (short) return fromLink(short[1]);
+    const long = location.hash.match(/^#w=([\w-]+)$/);
+    if (long) return unpack(long[1]);
+  } catch (e) { console.warn("Bad link", e); }
+  return null;
 }
 
+function clearAddress() {
+  history.replaceState(null, "", location.pathname);
+}
+
+function loadPlaces() {
+  viewingShared = false;
+  const mine = savedCode();
+  let myPlaces = null;
+  if (mine) {
+    try { myPlaces = unpack(mine); } catch (e) { /* broken: ignore */ }
+    if (myPlaces && myPlaces.length === 0) myPlaces = null; // emptied wall → family places
+  }
+
+  const shared = wallFromAddress();
+  if (shared && shared.length > 0) {
+    if (!myPlaces) {
+      rememberAsMine(pack(shared)); // first visit: the shared wall becomes theirs
+      clearAddress();
+    } else if (pack(shared) === pack(myPlaces)) {
+      clearAddress(); // it's their own wall anyway
+    } else {
+      viewingShared = true; // they already have their own wall: keep it safe
+    }
+    return shared;
+  }
+  if (location.hash) clearAddress();
+  return myPlaces || familyPlaces();
+}
+
+// Your own wall is saved in this browser and the address stays clean.
+// While viewing someone else's wall, edits only change the address.
 function savePlaces() {
-  const code = pack(places);
-  history.replaceState(null, "", `#w=${code}`);
-  if (!viewingShared) rememberAsMine(code);
+  if (viewingShared) {
+    history.replaceState(null, "", `${location.pathname}#p=${toLink(places)}`);
+  } else {
+    rememberAsMine(pack(places));
+    clearAddress();
+  }
 }
 
 let places = loadPlaces();
@@ -184,7 +278,7 @@ document.getElementById("back-to-mine").addEventListener("click", () => {
   viewingShared = false;
   places = mine ? unpack(mine) : familyPlaces();
   if (places.length === 0) places = familyPlaces();
-  history.replaceState(null, "", mine ? `#w=${mine}` : location.pathname);
+  clearAddress();
   render();
 });
 
@@ -397,13 +491,25 @@ editButton.addEventListener("click", () =>
 );
 
 shareButton.addEventListener("click", async () => {
-  savePlaces(); // make sure the address has the latest wall
-  const link = location.href;
+  const link = shareAddress();
+  const isPlain = !link.includes("#");
+
+  // On phones, open the phone's own share menu (WhatsApp, Messages, …)
+  const onPhone = matchMedia("(pointer: coarse)").matches;
+  if (onPhone && navigator.share) {
+    try {
+      await navigator.share({ title: "Family World Window", url: link });
+      return;
+    } catch (e) {
+      if (e.name === "AbortError") return; // they closed the share menu
+    }
+  }
+
   try {
     await navigator.clipboard.writeText(link);
-    toast("Link copied! Anyone who opens it sees this wall.");
+    toast(isPlain ? "Link copied! It opens the family places." : "Link copied! It opens this wall.");
   } catch {
-    prompt("Copy this link to share your wall:", link);
+    prompt("Copy this link:", link);
   }
 });
 

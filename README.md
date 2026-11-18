@@ -12,7 +12,8 @@ that opens exactly your wall.
 - Plain HTML, CSS and JavaScript – no build step, no frameworks.
 - `cams.js` – the camera catalogue and the default wall.
 - `app.js` – tiles, edit mode, share links, clocks and weather.
-- The wall is stored in the page address (`#w=…`), so sharing needs no accounts.
+- Your wall is saved in your browser. **Share** gives the plain address for the
+  family wall, or a short link like `#p=Jersey+City/Kuressaare` for any other wall.
 
 ## Data sources
 
