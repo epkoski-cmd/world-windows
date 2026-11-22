@@ -63,7 +63,10 @@ def check(camera):
             page = fetch(f"https://www.youtube.com/watch?v={camera['video']}").decode("utf-8", "replace")
             live = re.search(r'"isLiveNow":(true|false)', page)
             if not live:
-                return "unknown", "YouTube's page didn't say whether it's live"
+                # Say what YouTube answered instead, to help work out why
+                status = re.search(r'"playabilityStatus":\{"status":"([A-Z_]+)"(?:,"reason":"([^"]*)")?', page)
+                said = f"{status.group(1)} {status.group(2) or ''}".strip() if status else page[:80].replace("\n", " ")
+                return "unknown", f"YouTube's page didn't say whether it's live (it said: {said})"
             if live.group(1) == "true":
                 return "ok", "live"
             return "stopped", "the stream isn't live any more"
