@@ -11,6 +11,12 @@
 const wall = document.getElementById("wall");
 const STORAGE_KEY = "worldwindows.places";
 
+// Key for the Windy Webcams API (free). Anyone can see it here, which is
+// normal for a site without a server: Windy only accepts it from github.io
+// pages, and if it's ever misused we make a new one at api.windy.com/keys.
+const WINDY_KEY = "QZSqtvmzCOG1oaPlge5gxlQmnSJwsSM3";
+const WINDY_API = "https://api.windy.com/webcams/api/v3/webcams";
+
 // ============================================================
 //  Small helpers
 // ============================================================
@@ -52,6 +58,7 @@ function toast(message) {
 //   "tokyo-shibuya"                       – an id from the catalogue (cams.js)
 //   { yt: "VIDEO_ID" }                    – someone's own YouTube live link
 //   { fi: "C0350501", w: "…", a: lat, o: lon } – a Finnish road cam (Fintraffic)
+//   { windy: "1649025487" }               – any webcam on windy.com
 //   null                                  – no camera: show the sky instead
 
 function resolveCam(cam) {
@@ -67,6 +74,10 @@ function resolveCam(cam) {
       caption: "Road cam · Fintraffic",
       where: cam.w, lat: cam.a, lon: cam.o,
     };
+  }
+  if (cam.windy && /^\d{6,12}$/.test(cam.windy)) {
+    // Its name and location arrive later, from Windy (see updateWindy)
+    return { type: "windy", windy: cam.windy, caption: "Webcam via Windy" };
   }
   return null;
 }
@@ -122,7 +133,7 @@ function isValidTimeZone(tz) {
 //   • any other place is  name,lat,lon,time.zone,camera
 //     e.g.  Puumala,61.52,28.18,Europe.Helsinki,fi.C1053902
 //     (the "/" in time zones is written as ".", cameras are a catalogue id,
-//      yt.VIDEO_ID, fi.FINTRAFFIC_ID, or empty for no camera)
+//      yt.VIDEO_ID, fi.FINTRAFFIC_ID, windy.WEBCAM_ID, or empty for no camera)
 // Characters like * _ ~ are avoided: WhatsApp would turn them into formatting.
 
 const enc = (s) => encodeURIComponent(s).replace(/%20/g, "+");
@@ -141,6 +152,7 @@ function camToText(cam) {
   if (typeof cam === "string") return cam;
   if (cam.yt) return `yt.${cam.yt}`;
   if (cam.fi) return `fi.${cam.fi}`;
+  if (cam.windy) return `windy.${cam.windy}`;
   return "";
 }
 
@@ -148,6 +160,7 @@ function camFromText(t) {
   if (!t) return null;
   if (t.startsWith("yt.")) return { yt: t.slice(3) };
   if (t.startsWith("fi.")) return { fi: t.slice(3) };
+  if (t.startsWith("windy.")) return { windy: t.slice(6) };
   return t; // catalogue id
 }
 
@@ -306,6 +319,18 @@ function makeView(place, cam) {
     reload();
     place.timers.push(setInterval(reload, 10 * 60 * 1000));
     view.append(img, el("span", "badge", "Updates every 10 min"));
+  } else if (cam && cam.type === "windy") {
+    // Windy pictures: updateWindy() fills in the picture and the badge.
+    // Windy asks that every picture links back to the camera's page there.
+    const link = el("a", "preview");
+    link.href = `https://windy.com/webcams/${cam.windy}`;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.title = "Open this webcam on windy.com";
+    const img = document.createElement("img");
+    img.alt = `Camera near ${place.name}`;
+    link.append(img);
+    view.append(link, el("span", "badge", "Loading picture…"));
   } else {
     // No camera: a sky that follows day/night and the weather
     view.classList.add("sky");
@@ -374,6 +399,7 @@ function playYoutube(view, place, cam) {
 
 function makeTile(place, index) {
   const cam = resolveCam(place.cam);
+  place.camInfo = cam; // remembered for updateWindy
   const tile = el("article", "tile");
   place.timers = [];
   place.view = makeView(place, cam);
@@ -452,6 +478,7 @@ function render() {
   updateBanner();
   updateClocks();
   updateWeather();
+  updateWindy();
 }
 
 function restoreFamilyPlaces() {
@@ -609,6 +636,12 @@ async function chooseCity(r) {
       }
     } catch { /* road cams unavailable right now */ }
   }
+  try {
+    for (const o of await windyNearby(r.latitude, r.longitude)) {
+      // Skip Windy cameras that are already in our own list
+      if (!CAMS.some((c) => c.windy === o.value.windy)) options.push(o);
+    }
+  } catch { /* Windy unavailable right now */ }
   options.sort((a, b) => a.km - b.km);
   const nearby = options.filter((o) => o.km < 300).slice(0, 5);
 
@@ -754,6 +787,85 @@ async function updateWeather() {
 }
 
 setInterval(updateWeather, 15 * 60 * 1000);
+
+// ============================================================
+//  Windy webcams (free API key, see WINDY_KEY at the top)
+// ============================================================
+//
+// Windy picture addresses can expire, so we don't save them. Instead we ask
+// Windy for fresh ones when the page opens and again every 10 minutes:
+// one request for all the Windy cameras on the wall.
+
+function windyRequest(query) {
+  return fetch(`${WINDY_API}?${query}`, { headers: { "x-windy-api-key": WINDY_KEY } })
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Windy said ${r.status}`))));
+}
+
+async function updateWindy() {
+  const forPlaces = places.filter((p) => p.camInfo && p.camInfo.type === "windy");
+  if (forPlaces.length === 0) return;
+  const ids = [...new Set(forPlaces.map((p) => p.camInfo.windy))].join(",");
+
+  let webcams = [];
+  try {
+    const data = await windyRequest(`webcamIds=${ids}&include=images,location,urls&limit=50`);
+    webcams = data.webcams || [];
+  } catch (err) {
+    console.error("Windy failed:", err);
+  }
+
+  forPlaces.forEach((place) => {
+    const w = webcams.find((c) => String(c.webcamId) === place.camInfo.windy);
+    const img = place.view.querySelector("img");
+    const badge = place.view.querySelector(".badge");
+    if (!img) return; // this tile was redrawn meanwhile
+    if (!w || !w.images) {
+      badge.textContent = "Picture not available right now";
+      return;
+    }
+
+    img.src = w.images.current.preview;
+    place.view.querySelector("a").href = w.urls.detail;
+
+    // When was the picture taken? Shown in the place's own time.
+    const taken = new Date(w.lastUpdatedOn);
+    const hoursOld = (Date.now() - taken) / 3600000;
+    const time = taken.toLocaleTimeString("en-GB", { timeZone: place.tz, hour: "2-digit", minute: "2-digit" });
+    if (hoursOld < 3) {
+      badge.textContent = `Picture from ${time} · Windy`;
+      img.classList.remove("promo");
+    } else {
+      // An old picture: dim it so nobody thinks it's the view right now
+      const day = taken.toLocaleDateString("en-GB", { timeZone: place.tz, weekday: "short", day: "numeric", month: "short" });
+      badge.textContent = `Old picture · ${day} ${time}`;
+      img.classList.add("promo");
+    }
+
+    // Cameras added by link or search only know their number until now
+    if (!CAMS.some((c) => c.windy === place.camInfo.windy)) {
+      Object.assign(place.camInfo, {
+        caption: `${w.title} · via Windy`,
+        lat: w.location.latitude,
+        lon: w.location.longitude,
+      });
+      place.el.querySelector(".caption").textContent = cameraCaption(place, place.camInfo);
+    }
+  });
+}
+
+setInterval(updateWindy, 10 * 60 * 1000);
+
+// Windy cameras near a place, for the "Add a place" dialog
+async function windyNearby(lat, lon) {
+  const data = await windyRequest(`nearby=${lat.toFixed(4)},${lon.toFixed(4)},100&include=location&limit=10`);
+  return (data.webcams || [])
+    .filter((w) => w.status === "active")
+    .map((w) => ({
+      value: { windy: String(w.webcamId) },
+      cam: { caption: "Windy webcam", where: w.title },
+      km: distanceKm(lat, lon, w.location.latitude, w.location.longitude),
+    }));
+}
 
 // ============================================================
 //  Start

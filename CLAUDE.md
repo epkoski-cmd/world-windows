@@ -41,8 +41,11 @@ Ideas and next steps live in `IDEAS.md`.
 - Finnish road cams: Fintraffic Digitraffic (CC BY 4.0). Skip presets ending in `09`
   (road surface). Offline cams return a 9897-byte placeholder.
 - YouTube live streams load only after "Watch live" is pressed, to limit ads.
-- Planned: Windy Webcams API v3 (free key, visible in public code; image URLs expire
-  after 10 min so fetch fresh on each load; each image must link back to Windy).
+- Windy Webcams API v3: free key `WINDY_KEY` in `app.js`, visible on purpose,
+  restricted to `github.io`. Picture URLs can expire, so they're fetched fresh on
+  load and every 10 min (one batched `webcamIds=` request). Each picture links
+  back to its Windy page; footer credits windy.com. The key is refused on
+  `localhost`, so test Windy tiles on the live site (or feed the page saved answers).
 
 ## Working on it
 - Run locally: `python3 -m http.server 8080` in this folder, then open http://localhost:8080.

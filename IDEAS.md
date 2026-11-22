@@ -4,10 +4,7 @@ A running list. Pick one per session; move it to **Done** when it's live.
 Write ideas down as soon as they come up, even half-formed ones.
 
 ## Next
-- **Windy webcams** – ad-free still images and nearby-cam suggestions for any town
-  (London finds nothing today). Start with Calahonda and the tiles that only
-  show a channel picture (Kuressaare, Sabinillas). API key created
-  (restricted to github.io); it goes in the code, which is fine for a free key.
+- Use Windy's "daylight" picture at night (the last daytime view) as an option.
 
 ## Maybe later
 - Day/night switching: show a different cam (or the sky) when it's dark.
@@ -25,3 +22,5 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Finnish road cams suggested automatically when adding a Finnish place.
 - Notice when no camera is nearby.
 - GoatCounter visit stats.
+- Windy webcams: real pictures for Calahonda and Kuressaare, and nearby-cam
+  suggestions for any town (London now finds hundreds).

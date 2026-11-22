@@ -15,6 +15,8 @@
 //              add `livePreview: true` if YouTube's preview picture of the
 //              stream shows the real current view, not a promo picture)
 //              or "image" (still picture reloaded every 10 min, needs `url`)
+//              or "windy" (a still webcam picture from windy.com, needs
+//              `windy`: the number at the end of the camera's windy.com address)
 //
 // To add a camera: find a YouTube live stream, copy the part after
 // "watch?v=" in its address, and add a new entry below.
@@ -37,6 +39,8 @@ const CAMS = [
   // ---------- Estonia ----------
   { id: "kuressaare-square", where: "Kuressaare town square", lat: 58.2528, lon: 22.4845,
     caption: "Town square · Saarte Hääl", type: "youtube", video: "DSVZvGa4ZOw" },
+  { id: "kuressaare-muratsi", where: "Muratsi, near Kuressaare", lat: 58.2306, lon: 22.5758,
+    caption: "Seaside · via Windy", type: "windy", windy: "1793875438" },
   { id: "tallinn-citycam", where: "Tallinn", lat: 59.437, lon: 24.7536,
     caption: "City view · Digital.Tallinn", type: "youtube", video: "VhVgZi2lGv0" },
 
@@ -45,6 +49,10 @@ const CAMS = [
     caption: "Beach cam · Malaga Live Cam", type: "youtube", video: "Ib0xbFBU9Wg", livePreview: true },
   { id: "sabinillas-beach", where: "Sabinillas, Manilva", lat: 36.369, lon: -5.228,
     caption: "Beach cam · SabinillasBeach", type: "youtube", video: "9nOjBJE9AUU" },
+  { id: "sabinillas-promenade", where: "Sabinillas, Manilva", lat: 36.3691, lon: -5.2247,
+    caption: "Beach promenade · SabinillasBeach via Windy", type: "windy", windy: "1793908811" },
+  { id: "fuengirola-beach", where: "Fuengirola", lat: 36.535, lon: -4.6232,
+    caption: "Beach promenade · costawebcams via Windy", type: "windy", windy: "1649025487" },
 
   // ---------- Asia ----------
   { id: "tokyo-shibuya", where: "Shibuya, Tokyo", lat: 35.6595, lon: 139.7005,
@@ -70,8 +78,8 @@ const DEFAULT_PLACES = [
   { name: "Sundsberg, Kirkkonummi",  lat: 60.1539, lon: 24.5696, tz: "Europe/Helsinki",  cam: "kirkkonummi-inkila" },
   { name: "Ristiina",                lat: 61.5059, lon: 27.2563, tz: "Europe/Helsinki",  cam: "ristiina-road13" },
   { name: "Toholammi",               lat: 63.7667, lon: 24.25,   tz: "Europe/Helsinki",  cam: "toholampi-road63" },
-  { name: "Kuressaare",              lat: 58.2528, lon: 22.4845, tz: "Europe/Tallinn",   cam: "kuressaare-square" },
+  { name: "Kuressaare",              lat: 58.2528, lon: 22.4845, tz: "Europe/Tallinn",   cam: "kuressaare-muratsi" },
   { name: "Torremolinos",            lat: 36.6219, lon: -4.4999, tz: "Europe/Madrid",    cam: "rincon-victoria-beach" },
-  { name: "Calahonda",               lat: 36.4928, lon: -4.7172, tz: "Europe/Madrid",    cam: "sabinillas-beach" },
+  { name: "Calahonda",               lat: 36.4928, lon: -4.7172, tz: "Europe/Madrid",    cam: "fuengirola-beach" },
   { name: "Jersey City",             lat: 40.7178, lon: -74.0431, tz: "America/New_York", cam: "weehawken-lincoln-harbor" },
 ];
