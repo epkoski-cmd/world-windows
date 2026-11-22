@@ -21,7 +21,8 @@ Ideas and next steps live in `IDEAS.md`.
 
 ## Rules learned the hard way
 - **Bump `?v=N` in `index.html`** (CSS and both scripts) whenever a file changes,
-  or browsers keep the old version.
+  or browsers keep the old version. Open pages compare their `app.js?v=` with
+  the live `index.html` and reload themselves once when it's newer.
 - **No `confirm()` or `prompt()` pop-ups**: phone browsers block them silently.
   Use a tap-again confirmation instead (see the Restore tile).
 - **Share links must stay short and readable**: plain URL for the family wall,
@@ -33,6 +34,9 @@ Ideas and next steps live in `IDEAS.md`.
 - Insert user-supplied text with `textContent` (the `el()` helper), never `innerHTML`.
 - Only use cameras whose owners allow embedding. Don't work around blocked
   images or embeds (e.g. spoofed referers).
+- **Never remove a dead camera**: give it `replacedBy: "<new id>"` so old walls
+  and links switch to the new one. Check a YouTube stream is live with
+  `curl -s -A "Mozilla/5.0" "https://www.youtube.com/watch?v=ID" | grep -o '"isLiveNow":[a-z]*'`.
 - Check that a YouTube preview picture shows the real current view
   (`livePreview: true`) or it gets dimmed and labelled as a channel picture.
 

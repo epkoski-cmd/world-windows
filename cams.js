@@ -17,6 +17,8 @@
 //              or "image" (still picture reloaded every 10 min, needs `url`)
 //              or "windy" (a still webcam picture from windy.com, needs
 //              `windy`: the number at the end of the camera's windy.com address)
+//   replacedBy – (optional) id of the camera to show instead, when this one
+//              has stopped working. Old walls and links then still show a view.
 //
 // To add a camera: find a YouTube live stream, copy the part after
 // "watch?v=" in its address, and add a new entry below.
@@ -61,8 +63,13 @@ const CAMS = [
     caption: "Han River · Han River Live 365", type: "youtube", video: "5gVrWGRZo9s" },
 
   // ---------- USA ----------
+  // This stream ended in Nov 2026; walls that still use it get the 17th Street view
   { id: "weehawken-lincoln-harbor", where: "Lincoln Harbor, Weehawken", lat: 40.7616, lon: -74.0237,
-    caption: "Hudson waterfront · EarthCam", type: "youtube", video: "sixP_dAJ8D4", livePreview: true },
+    caption: "Hudson waterfront · EarthCam", type: "youtube", video: "sixP_dAJ8D4", livePreview: true,
+    replacedBy: "nyc-hudson-17th" },
+  { id: "nyc-hudson-17th", where: "17th Street, Manhattan", lat: 40.7445, lon: -74.0085,
+    caption: "Hudson River, looking at Jersey City · Craig Nevill-Manning", type: "youtube",
+    video: "kE_N1WY7UAY", livePreview: true },
   { id: "seaside-heights", where: "Seaside Heights, NJ", lat: 39.944, lon: -74.073,
     caption: "Beach & boardwalk · EarthCam", type: "youtube", video: "OBgCrw-IyhE" },
   { id: "sf-bay-bridge", where: "Bay Bridge, San Francisco", lat: 37.7983, lon: -122.3778,
@@ -77,9 +84,9 @@ const DEFAULT_PLACES = [
   { name: "Espoo",                   lat: 60.2055, lon: 24.6559, tz: "Europe/Helsinki",  cam: "helsinki-lauttasaari" },
   { name: "Sundsberg, Kirkkonummi",  lat: 60.1539, lon: 24.5696, tz: "Europe/Helsinki",  cam: "kirkkonummi-inkila" },
   { name: "Ristiina",                lat: 61.5059, lon: 27.2563, tz: "Europe/Helsinki",  cam: "ristiina-road13" },
-  { name: "Toholammi",               lat: 63.7667, lon: 24.25,   tz: "Europe/Helsinki",  cam: "toholampi-road63" },
+  { name: "Toholampi",               lat: 63.7667, lon: 24.25,   tz: "Europe/Helsinki",  cam: "toholampi-road63" },
   { name: "Kuressaare",              lat: 58.2528, lon: 22.4845, tz: "Europe/Tallinn",   cam: "kuressaare-square" },
   { name: "Torremolinos",            lat: 36.6219, lon: -4.4999, tz: "Europe/Madrid",    cam: "rincon-victoria-beach" },
   { name: "Calahonda",               lat: 36.4928, lon: -4.7172, tz: "Europe/Madrid",    cam: "fuengirola-beach" },
-  { name: "Jersey City",             lat: 40.7178, lon: -74.0431, tz: "America/New_York", cam: "weehawken-lincoln-harbor" },
+  { name: "Jersey City",             lat: 40.7178, lon: -74.0431, tz: "America/New_York", cam: "nyc-hudson-17th" },
 ];

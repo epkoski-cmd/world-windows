@@ -63,7 +63,12 @@ function toast(message) {
 
 function resolveCam(cam) {
   if (!cam) return null;
-  if (typeof cam === "string") return CAMS.find((c) => c.id === cam) || null;
+  if (typeof cam === "string") {
+    const found = CAMS.find((c) => c.id === cam);
+    // A camera that stopped working may point to a replacement
+    if (found && found.replacedBy) return resolveCam(found.replacedBy);
+    return found || null;
+  }
   if (cam.yt && /^[\w-]{11}$/.test(cam.yt)) {
     return { type: "youtube", video: cam.yt, caption: "YouTube live stream" };
   }
@@ -330,11 +335,11 @@ function makeView(place, cam) {
     const img = document.createElement("img");
     img.alt = `Camera near ${place.name}`;
     link.append(img);
-    // Shown at night only: switch between the daylight picture and the dark one
+    // Shown at night only: switch between the dark picture and the last daylight one
     const dayNight = el("button", "close-live day-night");
     dayNight.hidden = true;
     dayNight.addEventListener("click", () => {
-      place.showNow = !place.showNow;
+      place.showDaylight = !place.showDaylight;
       showWindyPicture(place);
     });
     view.append(link, el("span", "badge", "Loading picture…"), dayNight);
@@ -687,7 +692,7 @@ async function chooseCity(r, current) {
   const nightCheck = isNightAt(r.latitude, r.longitude);
 
   // Collect camera suggestions, nearest first
-  const options = CAMS.map((c) => ({
+  const options = CAMS.filter((c) => !c.replacedBy).map((c) => ({
     value: c.id, cam: c, km: distanceKm(r.latitude, r.longitude, c.lat, c.lon),
   }));
   if (r.country_code === "FI") {
@@ -785,7 +790,9 @@ async function chooseCity(r, current) {
     more = more.filter((o) => !isCurrent(o.value));
   }
 
-  nearby.forEach((o, i) => suggestion(o, changing ? isCurrent(o.value) : i === 0));
+  // When adding a place, start with the nearest camera that isn't a road cam
+  const firstChoice = nearby.find((o) => !isRoadCam(o)) || nearby[0];
+  nearby.forEach((o) => suggestion(o, changing ? isCurrent(o.value) : o === firstChoice));
 
   // "Show more cameras": the pictures only load when someone asks for them
   if (more.length > 0) {
@@ -1037,9 +1044,9 @@ async function updateWindy() {
 
 setInterval(updateWindy, 10 * 60 * 1000);
 
-// Which Windy picture to show. At night (we know from the weather) a camera
-// mostly sees darkness, so we show its last daylight picture instead, clearly
-// labelled. The button on the tile switches between the two.
+// Which Windy picture to show. Always the newest one first, even at night:
+// a dark picture tells you it's night there right now, which is the point.
+// At night a button lets you peek at the last daylight picture instead.
 function showWindyPicture(place) {
   const w = place.windyCam;
   const img = place.view.querySelector("img");
@@ -1065,14 +1072,14 @@ function showWindyPicture(place) {
 
   const isNight = place.isDay === false && w.images.daylight;
   button.hidden = !isNight;
-  if (isNight && !place.showNow) {
+  if (isNight && place.showDaylight) {
     img.src = w.images.daylight.preview;
-    badge.textContent = "🌙 Dark now · last daylight view";
+    badge.textContent = "☀ Earlier daylight view · not now";
     button.textContent = "See it now";
   } else {
     img.src = w.images.current.preview;
-    badge.textContent = `Picture from ${time} · Windy`;
-    button.textContent = "Daylight view";
+    badge.textContent = `${isNight ? "🌙 " : ""}Picture from ${time} · Windy`;
+    button.textContent = "☀ Daylight view";
   }
 }
 
@@ -1095,7 +1102,41 @@ async function windyNearby(lat, lon) {
 }
 
 // ============================================================
+//  Newer version of the site?
+// ============================================================
+//
+// Phones (and WhatsApp's built-in browser) keep a saved copy of the page and
+// can show it for a while after we've changed the site. So each time the page
+// opens, or comes back on screen, we fetch the newest index.html straight from
+// GitHub (skipping any saved copy) and compare its ?v= number with ours.
+// If the site is newer, the page reloads itself.
+
+const runningVersion = (document.querySelector('script[src^="app.js"]').getAttribute("src").match(/v=(\d+)/) || [])[1];
+
+async function checkForNewVersion() {
+  // Don't reload in the middle of someone's editing
+  if (dialog.open || document.body.classList.contains("editing")) return;
+  try {
+    const html = await (await fetch("index.html", { cache: "no-store" })).text();
+    const latest = (html.match(/app\.js\?v=(\d+)/) || [])[1];
+    if (!latest || latest === runningVersion) return;
+    // Reload only once per new version, so a stubborn saved copy can't
+    // make the page reload over and over
+    if (sessionStorage.getItem("reloadedFor") === latest) return;
+    sessionStorage.setItem("reloadedFor", latest);
+    location.reload();
+  } catch {
+    /* offline, or storage blocked: we'll check again next time */
+  }
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) checkForNewVersion();
+});
+
+// ============================================================
 //  Start
 // ============================================================
 
 render();
+checkForNewVersion();

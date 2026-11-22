@@ -4,6 +4,10 @@ A running list. Pick one per session; move it to **Done** when it's live.
 Write ideas down as soon as they come up, even half-formed ones.
 
 ## Next
+- A daily check that every YouTube stream is still live: a free scheduled
+  GitHub Action reads each stream's YouTube page ("isLiveNow") and opens an
+  issue (an email to us) when one has ended. Browsers can't read YouTube pages
+  themselves, so this has to run on GitHub's side.
 - Review the family wall with the family: Helsinki, Espoo and Kirkkonummi are
   close together (same time, nearly same weather). Missing places? Tallinn?
 
@@ -28,7 +32,12 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Windy webcams: a real picture for Calahonda, and nearby-cam
   suggestions for any town (London now finds hundreds).
 - Preview pictures next to each camera choice when adding a place.
-- Windy tiles show the last daylight picture at night, with a button to see it now.
+- Windy tiles at night: the newest (dark) picture first, so you can see it's
+  night there; a "Daylight view" button shows the last daylight picture.
 - "Change camera" button on each tile in edit mode (also lets you rename the place).
 - Better camera suggestions: offline road cams hidden, Windy copies of Finnish
   road cams skipped, at most 2 road cams in the first 5, "Show more cameras".
+- First camera choice is the nearest one that isn't a road cam.
+- Jersey City: the EarthCam stream ended; now the Hudson River view from
+  17th Street. Old walls are moved over with `replacedBy` in cams.js.
+- The page reloads itself when a newer version of the site is out.
