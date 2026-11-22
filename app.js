@@ -631,6 +631,8 @@ async function chooseCity(r) {
   addConfirm.hidden = false;
   nameInput.value = r.name;
   camOptions.replaceChildren(el("p", "hint", "Looking for cameras nearby…"));
+  // Is it dark there now? Asked straight away, while we look for cameras.
+  const nightCheck = isNightAt(r.latitude, r.longitude);
 
   // Collect camera suggestions, nearest first
   const options = CAMS.map((c) => ({
@@ -656,6 +658,7 @@ async function chooseCity(r) {
   } catch { /* Windy unavailable right now */ }
   options.sort((a, b) => a.km - b.km);
   const nearby = options.filter((o) => o.km < 300).slice(0, 5);
+  const isNight = await nightCheck;
 
   camOptions.replaceChildren();
   const radio = (label, sub, value, checked, thumb) => {
@@ -684,7 +687,7 @@ async function chooseCity(r) {
   }
 
   nearby.forEach((o, i) => {
-    const thumb = camThumb(o.cam, windyPics);
+    const thumb = camThumb(o.cam, windyPics, isNight);
     const sub = [`${Math.round(o.km)} km away`, thumb && thumb.note].filter(Boolean).join(" · ");
     radio(`${o.cam.caption} · ${o.cam.where}`, sub, o.value, i === 0, thumb && thumb.el);
   });
@@ -696,9 +699,21 @@ async function chooseCity(r) {
   radio("No camera", "Shows the sky: day or night, and the weather", null, nearby.length === 0);
 }
 
+// Is it night at this spot right now? (Open-Meteo knows; if it can't say, assume day.)
+async function isNightAt(lat, lon) {
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=is_day`;
+    const data = await (await fetch(url)).json();
+    return data.current.is_day === 0;
+  } catch {
+    return false;
+  }
+}
+
 // A small picture for a camera choice, so people can see the view before picking it.
 // Returns { el, note } (note says when the picture isn't the view right now), or null.
-function camThumb(cam, windyPics) {
+// At night, Windy cameras show their last daylight picture, like on the tiles.
+function camThumb(cam, windyPics, isNight) {
   const img = document.createElement("img");
   img.className = "cam-thumb";
   img.alt = "";
@@ -718,16 +733,22 @@ function camThumb(cam, windyPics) {
   const pic = cam.type === "windy" && windyPics[cam.windy];
   if (pic && pic.src) {
     // Windy asks that its pictures link back to the camera's page on windy.com
-    img.src = pic.src;
     const link = el("a", "cam-thumb-link");
     link.href = pic.link;
     link.target = "_blank";
     link.rel = "noopener";
     link.title = "See this webcam bigger on windy.com";
     link.append(img);
-    if (!pic.old) return { el: link };
-    img.classList.add("promo");
-    return { el: link, note: "old picture" };
+    img.src = pic.src;
+    if (pic.old) {
+      img.classList.add("promo");
+      return { el: link, note: "old picture" };
+    }
+    if (isNight && pic.daylight) {
+      img.src = pic.daylight;
+      return { el: link, note: "dark now, daylight view" };
+    }
+    return { el: link };
   }
   return null;
 }
@@ -946,6 +967,7 @@ async function windyNearby(lat, lon) {
       km: distanceKm(lat, lon, w.location.latitude, w.location.longitude),
       pic: {
         src: w.images && w.images.current.thumbnail,
+        daylight: w.images && w.images.daylight && w.images.daylight.thumbnail,
         link: w.urls ? w.urls.detail : `https://windy.com/webcams/${w.webcamId}`,
         old: Date.now() - new Date(w.lastUpdatedOn) > 3 * 3600000, // over 3 hours old
       },
