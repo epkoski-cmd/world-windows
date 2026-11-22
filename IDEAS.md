@@ -4,8 +4,6 @@ A running list. Pick one per session; move it to **Done** when it's live.
 Write ideas down as soon as they come up, even half-formed ones.
 
 ## Next
-- Review the family wall with the family: Helsinki, Espoo and Kirkkonummi are
-  close together (same time, nearly same weather). Missing places? Tallinn?
 
 ## Maybe later
 - Day/night switching: show a different cam (or the sky) when it's dark.
@@ -40,3 +38,5 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Daily camera check on GitHub: YouTube streams still live (YouTube Data API,
   key in a GitHub secret), road cams not offline. A stopped camera opens an
   issue (GitHub emails us).
+- Family wall reviewed: Espoo shows Ringside Golf, Kokkola added (Ohtakari
+  seashore), Torremolinos and Calahonda became one Malaga tile (La Caleta).

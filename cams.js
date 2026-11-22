@@ -37,6 +37,10 @@ const CAMS = [
     caption: "Road cam · Fintraffic", type: "image", url: "https://weathercam.digitraffic.fi/C0158401.jpg" },
   { id: "toholampi-road63", where: "Road 63, Toholampi", lat: 63.7674, lon: 24.2451,
     caption: "Road cam · Fintraffic", type: "image", url: "https://weathercam.digitraffic.fi/C1053902.jpg" },
+  { id: "espoo-ringside-golf", where: "Ringside Golf, Espoo", lat: 60.2769, lon: 24.7408,
+    caption: "Golf course · via Windy", type: "windy", windy: "1793919283" },
+  { id: "kokkola-ohtakari", where: "Ohtakari, Kokkola", lat: 64.0894, lon: 23.4068,
+    caption: "Seashore · via Windy", type: "windy", windy: "1616135607" },
 
   // ---------- Estonia ----------
   { id: "kuressaare-square", where: "Kuressaare town square", lat: 58.2528, lon: 22.4845,
@@ -55,6 +59,8 @@ const CAMS = [
     caption: "Beach promenade · SabinillasBeach via Windy", type: "windy", windy: "1793908811" },
   { id: "fuengirola-beach", where: "Fuengirola", lat: 36.535, lon: -4.6232,
     caption: "Beach promenade · costawebcams via Windy", type: "windy", windy: "1649025487" },
+  { id: "malaga-caleta", where: "La Caleta & Malagueta, Málaga", lat: 36.7226, lon: -4.3967,
+    caption: "Sea and beach promenade · via Windy", type: "windy", windy: "1658397367" },
 
   // ---------- Asia ----------
   { id: "tokyo-shibuya", where: "Shibuya, Tokyo", lat: 35.6595, lon: 139.7005,
@@ -81,12 +87,12 @@ const CAMS = [
 // cam can be a catalogue id, or null for "no camera".
 const DEFAULT_PLACES = [
   { name: "Helsinki",                lat: 60.1695, lon: 24.9355, tz: "Europe/Helsinki",  cam: "helsinki-south-harbour" },
-  { name: "Espoo",                   lat: 60.2055, lon: 24.6559, tz: "Europe/Helsinki",  cam: "helsinki-lauttasaari" },
+  { name: "Espoo",                   lat: 60.2055, lon: 24.6559, tz: "Europe/Helsinki",  cam: "espoo-ringside-golf" },
   { name: "Sundsberg, Kirkkonummi",  lat: 60.1539, lon: 24.5696, tz: "Europe/Helsinki",  cam: "kirkkonummi-inkila" },
   { name: "Ristiina",                lat: 61.5059, lon: 27.2563, tz: "Europe/Helsinki",  cam: "ristiina-road13" },
   { name: "Toholampi",               lat: 63.7667, lon: 24.25,   tz: "Europe/Helsinki",  cam: "toholampi-road63" },
+  { name: "Kokkola",                 lat: 63.8385, lon: 23.1307, tz: "Europe/Helsinki",  cam: "kokkola-ohtakari" },
   { name: "Kuressaare",              lat: 58.2528, lon: 22.4845, tz: "Europe/Tallinn",   cam: "kuressaare-square" },
-  { name: "Torremolinos",            lat: 36.6219, lon: -4.4999, tz: "Europe/Madrid",    cam: "rincon-victoria-beach" },
-  { name: "Calahonda",               lat: 36.4928, lon: -4.7172, tz: "Europe/Madrid",    cam: "fuengirola-beach" },
+  { name: "Malaga",                  lat: 36.7213, lon: -4.4214, tz: "Europe/Madrid",    cam: "malaga-caleta" },
   { name: "Jersey City",             lat: 40.7178, lon: -74.0431, tz: "America/New_York", cam: "nyc-hudson-17th" },
 ];
