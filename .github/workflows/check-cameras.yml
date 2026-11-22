@@ -31,6 +31,10 @@ jobs:
       - name: Check every camera
         id: check
         continue-on-error: true
+        env:
+          # Saved under Settings → Secrets and variables → Actions. GitHub hides
+          # it in logs, and it never appears in the code.
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python3 scripts/check_cameras.py ${{ inputs.include_replaced && '--include-replaced' || '' }}
 
       - name: Tell us in an issue

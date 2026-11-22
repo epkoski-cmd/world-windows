@@ -57,9 +57,10 @@ Ideas and next steps live in `IDEAS.md`.
   the open one). Run it by hand: `gh workflow run check-cameras.yml`; add
   `-f include_replaced=true` for a test run that always finds the old Jersey City stream.
 - GitHub pauses scheduled workflows after 60 days without commits; re-enable under Actions.
-- YouTube answers GitHub's computers with "Sign in to confirm you're not a bot",
-  so YouTube streams show as "couldn't be checked" there. Don't work around that
-  check; the proper fix is the YouTube Data API (see IDEAS.md).
+- YouTube streams are checked with the YouTube Data API, key in the GitHub secret
+  `YOUTUBE_API_KEY` (never in the code). Without it the script reads YouTube
+  pages, which works from a home computer but not from GitHub (YouTube asks
+  GitHub's computers to sign in; don't work around that).
 
 ## Working on it
 - Run locally: `python3 -m http.server 8080` in this folder, then open http://localhost:8080.
