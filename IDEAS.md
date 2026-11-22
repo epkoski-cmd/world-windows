@@ -14,7 +14,6 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Ask the family what they'd want to see.
 - Search Windy up to 250 km when nothing is found within 100 km
   (helps remote places; e.g. Mendoza goes from 2 cams to 20).
-- "Show more cameras" in the add dialog (only 5 are shown now).
 - Learn to run a small server (e.g. a free Cloudflare Worker) that adds the
   Windy API key itself, so the key no longer sits in the public code.
 
@@ -31,3 +30,5 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Preview pictures next to each camera choice when adding a place.
 - Windy tiles show the last daylight picture at night, with a button to see it now.
 - "Change camera" button on each tile in edit mode (also lets you rename the place).
+- Better camera suggestions: offline road cams hidden, Windy copies of Finnish
+  road cams skipped, at most 2 road cams in the first 5, "Show more cameras".

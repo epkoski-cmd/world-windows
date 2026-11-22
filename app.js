@@ -627,25 +627,49 @@ async function searchCities() {
   }
 }
 
-// Fintraffic road cameras (only fetched when someone adds a place in Finland)
+// Fintraffic road cameras (only fetched when someone adds a place in Finland).
+// Two lists: where the cameras are, and when each one last took a picture.
 let finnishCamsPromise = null;
 function finnishRoadCams() {
-  finnishCamsPromise ??= fetch("https://tie.digitraffic.fi/api/weathercam/v1/stations")
-    .then((r) => r.json())
-    .then((d) =>
-      d.features
-        .filter((f) => f.properties.collectionStatus === "GATHERING")
-        .map((f) => {
-          // Skip presets ending in 09: those point down at the road surface
-          const preset = f.properties.presets.find((p) => p.inCollection && !p.id.endsWith("09"));
-          const [lon, lat] = f.geometry.coordinates;
-          // "vt13_Ostolahti" → "Ostolahti"
-          const where = f.properties.name.replace(/^[a-z]+\d*_/i, "").replace(/_/g, " ");
-          return preset && { fi: preset.id, w: where, a: lat, o: lon };
-        })
-        .filter(Boolean),
-    );
+  const getJson = (url) => fetch(url).then((r) => r.json());
+  finnishCamsPromise ??= Promise.all([
+    getJson("https://tie.digitraffic.fi/api/weathercam/v1/stations"),
+    getJson("https://tie.digitraffic.fi/api/weathercam/v1/stations/data"),
+  ]).then(([stations, data]) => {
+    // When did each camera last take a picture? e.g. { C0162302: "2026-09-14T02:50:05Z" }
+    const lastPicture = {};
+    for (const s of data.stations) for (const p of s.presets) lastPicture[p.id] = p.measuredTime;
+
+    return stations.features
+      .filter((f) => f.properties.collectionStatus === "GATHERING")
+      .map((f) => {
+        // Skip presets ending in 09: those point down at the road surface
+        const preset = f.properties.presets.find((p) => p.inCollection && !p.id.endsWith("09"));
+        if (!preset) return null;
+        // Skip cameras with no picture in the last 3 hours: they're offline
+        // and would only show Fintraffic's "Image not available" picture
+        const taken = new Date(lastPicture[preset.id]);
+        if (!(Date.now() - taken < 3 * 3600000)) return null;
+        const [lon, lat] = f.geometry.coordinates;
+        // "vt13_Ostolahti" → "Ostolahti"
+        const where = f.properties.name.replace(/^[a-z]+\d*_/i, "").replace(/_/g, " ");
+        return { fi: preset.id, w: where, a: lat, o: lon };
+      })
+      .filter(Boolean);
+  });
   return finnishCamsPromise;
+}
+
+// Road cams are useful, but a whole list of motorways isn't much of a view.
+function isRoadCam(option) {
+  return Boolean(option.value.fi) || Boolean(option.cam.url && option.cam.url.includes("digitraffic"));
+}
+
+// Many Windy cameras in Finland are Fintraffic's road cams shown again, with
+// titles like "Espoo: Tie 1 - Lommila" or "Espoo › North: Kehä I" (tie = road,
+// kehä = ring road). In Finland we already have those from Fintraffic.
+function isFinnishRoadOnWindy(title) {
+  return /(^|: )(Tie ?\d|Kehä\s)/.test(title);
 }
 
 // `current` is the camera a place already has (only when changing its camera),
@@ -681,15 +705,37 @@ async function chooseCity(r, current) {
     for (const o of await windyNearby(r.latitude, r.longitude)) {
       windyPics[o.value.windy] = o.pic;
       // Skip Windy cameras that are already in our own list
-      if (!CAMS.some((c) => c.windy === o.value.windy)) options.push(o);
+      if (CAMS.some((c) => c.windy === o.value.windy)) continue;
+      if (r.country_code === "FI" && isFinnishRoadOnWindy(o.cam.caption)) continue;
+      options.push(o);
     }
   } catch { /* Windy unavailable right now */ }
   options.sort((a, b) => a.km - b.km);
-  const nearby = options.filter((o) => o.km < 300).slice(0, 5);
+
+  // Pick 5 to show: the nearest, but at most 2 road cams, so other views get a turn.
+  // (If there aren't enough other cameras, more road cams fill the gaps.)
+  const all = options.filter((o) => o.km < 300);
+  const nearby = [];
+  let roadCams = 0;
+  for (const o of all) {
+    if (nearby.length === 5) break;
+    if (isRoadCam(o)) {
+      if (roadCams === 2) continue;
+      roadCams++;
+    }
+    nearby.push(o);
+  }
+  for (const o of all) {
+    if (nearby.length === 5) break;
+    if (!nearby.includes(o)) nearby.push(o);
+  }
+  nearby.sort((a, b) => a.km - b.km);
+  // The rest wait behind a "Show more cameras" button
+  let more = all.filter((o) => !nearby.includes(o)).slice(0, 15);
   const isNight = await nightCheck;
 
   camOptions.replaceChildren();
-  const radio = (label, sub, value, checked, thumb) => {
+  const radio = (label, sub, value, checked, thumb, parent = camOptions) => {
     const row = el("label", "cam-option");
     const input = document.createElement("input");
     input.type = "radio";
@@ -700,8 +746,14 @@ async function chooseCity(r, current) {
     row.title = label; // the full name, in case it's cut short on screen
     if (sub) row.append(el("small", "", sub));
     if (thumb) row.append(thumb);
-    camOptions.append(row);
+    parent.append(row);
     return input;
+  };
+  // One suggested camera: its name, how far away it is, and a small picture
+  const suggestion = (o, checked, parent) => {
+    const thumb = camThumb(o.cam, windyPics, isNight);
+    const sub = [`${Math.round(o.km)} km away`, thumb && thumb.note].filter(Boolean).join(" · ");
+    radio(`${o.cam.caption} · ${o.cam.where}`, sub, o.value, checked, thumb && thumb.el, parent);
   };
 
   // Our camera list is still small, so say so instead of silently showing nothing
@@ -729,14 +781,23 @@ async function chooseCity(r, current) {
       const label = cam.where ? `${cam.caption} · ${cam.where}` : cam.caption;
       radio(label, "The camera it has now", current, true, thumb && thumb.el);
     }
+    // It's already at the top, so don't list it again further down
+    more = more.filter((o) => !isCurrent(o.value));
   }
 
-  nearby.forEach((o, i) => {
-    const thumb = camThumb(o.cam, windyPics, isNight);
-    const sub = [`${Math.round(o.km)} km away`, thumb && thumb.note].filter(Boolean).join(" · ");
-    const checked = changing ? isCurrent(o.value) : i === 0;
-    radio(`${o.cam.caption} · ${o.cam.where}`, sub, o.value, checked, thumb && thumb.el);
-  });
+  nearby.forEach((o, i) => suggestion(o, changing ? isCurrent(o.value) : i === 0));
+
+  // "Show more cameras": the pictures only load when someone asks for them
+  if (more.length > 0) {
+    const moreBox = el("div", "more-cams");
+    const moreButton = el("button", "show-more", `Show ${more.length} more cameras`);
+    moreButton.type = "button";
+    moreButton.addEventListener("click", () => {
+      more.forEach((o) => suggestion(o, false, moreBox));
+      moreButton.remove();
+    });
+    camOptions.append(moreBox, moreButton);
+  }
   const ytRadio = radio("My own YouTube live link", "Paste the address of a live stream", "youtube", Boolean(currentIsYoutube));
   const ytInput = el("input", "yt-input");
   ytInput.placeholder = "https://www.youtube.com/watch?v=…";
@@ -1017,7 +1078,7 @@ function showWindyPicture(place) {
 
 // Windy cameras near a place, for the "Add a place" dialog
 async function windyNearby(lat, lon) {
-  const data = await windyRequest(`nearby=${lat.toFixed(4)},${lon.toFixed(4)},100&include=location,images,urls&limit=10`);
+  const data = await windyRequest(`nearby=${lat.toFixed(4)},${lon.toFixed(4)},100&include=location,images,urls&limit=50`);
   return (data.webcams || [])
     .filter((w) => w.status === "active")
     .map((w) => ({

@@ -228,6 +228,9 @@ dialog input {
 }
 .cam-thumb.promo { opacity: 0.45; }
 .yt-input { margin: -2px 0 4px; }
+/* Extra camera choices behind "Show more cameras" sit in the same list */
+.more-cams { display: contents; }
+.show-more { justify-self: start; font-size: 0.9rem; }
 .hint { color: var(--muted); font-size: 0.9rem; }
 .dialog-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
