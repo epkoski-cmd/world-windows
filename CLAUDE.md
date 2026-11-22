@@ -51,6 +51,13 @@ Ideas and next steps live in `IDEAS.md`.
   back to its Windy page; footer credits windy.com. The key is refused on
   `localhost`, so test Windy tiles on the live site (or feed the page saved answers).
 
+## Daily camera check
+- `.github/workflows/check-cameras.yml` runs `scripts/check_cameras.py` every
+  morning. If a camera has stopped, it opens a `dead-camera` issue (or comments on
+  the open one). Run it by hand: `gh workflow run check-cameras.yml`; add
+  `-f include_replaced=true` for a test run that always finds the old Jersey City stream.
+- GitHub pauses scheduled workflows after 60 days without commits; re-enable under Actions.
+
 ## Working on it
 - Run locally: `python3 -m http.server 8080` in this folder, then open http://localhost:8080.
   (The preview tool can't start Python in ~/Documents, so start it from the shell

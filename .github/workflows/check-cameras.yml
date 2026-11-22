@@ -1,0 +1,47 @@
+# Once a day, GitHub checks that every camera in cams.js still works
+# (scripts/check_cameras.py). If one has stopped, it opens an issue in this
+# repository, and GitHub emails us about it. While that issue is open, later
+# runs add a comment instead of opening a new one.
+#
+# Run it by hand: GitHub → Actions → "Check cameras" → "Run workflow"
+# (or `gh workflow run check-cameras.yml`).
+
+name: Check cameras
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # every day at 06:00 UTC (08:00–09:00 in Finland)
+  workflow_dispatch:
+    inputs:
+      include_replaced:
+        description: "Also check retired cameras (a test: the old Jersey City stream always fails)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check every camera
+        id: check
+        continue-on-error: true
+        run: python3 scripts/check_cameras.py ${{ inputs.include_replaced && '--include-replaced' || '' }}
+
+      - name: Tell us in an issue
+        if: steps.check.outcome == 'failure' && hashFiles('camera-report.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create dead-camera --color B60205 --description "A camera has stopped working" 2>/dev/null || true
+          open_issue=$(gh issue list --label dead-camera --state open --json number --jq '.[0].number')
+          if [ -n "$open_issue" ]; then
+            gh issue comment "$open_issue" --body-file camera-report.md
+          else
+            gh issue create --title "A camera has stopped working" --label dead-camera --body-file camera-report.md
+          fi
