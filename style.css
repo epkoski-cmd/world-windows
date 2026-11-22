@@ -197,7 +197,7 @@ dialog input {
 #cam-options { display: grid; gap: 6px; }
 .cam-option {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   gap: 0 10px;
   align-items: center;
   padding: 8px 10px;
@@ -207,6 +207,24 @@ dialog input {
 }
 .cam-option input { width: auto; }
 .cam-option small { grid-column: 2; color: var(--muted); }
+/* Some camera names are very long: show at most two lines */
+.cam-option > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Little preview picture on the right of a camera choice */
+.cam-thumb-link, .cam-option > .cam-thumb { grid-column: 3; grid-row: 1 / span 2; }
+.cam-thumb {
+  display: block;
+  width: 96px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #1a1f27;
+}
+.cam-thumb.promo { opacity: 0.45; }
 .yt-input { margin: -2px 0 4px; }
 .hint { color: var(--muted); font-size: 0.9rem; }
 .dialog-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }

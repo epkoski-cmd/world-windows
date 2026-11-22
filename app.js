@@ -330,7 +330,14 @@ function makeView(place, cam) {
     const img = document.createElement("img");
     img.alt = `Camera near ${place.name}`;
     link.append(img);
-    view.append(link, el("span", "badge", "Loading picture…"));
+    // Shown at night only: switch between the daylight picture and the dark one
+    const dayNight = el("button", "close-live day-night");
+    dayNight.hidden = true;
+    dayNight.addEventListener("click", () => {
+      place.showNow = !place.showNow;
+      showWindyPicture(place);
+    });
+    view.append(link, el("span", "badge", "Loading picture…"), dayNight);
   } else {
     // No camera: a sky that follows day/night and the weather
     view.classList.add("sky");
@@ -632,12 +639,17 @@ async function chooseCity(r) {
   if (r.country_code === "FI") {
     try {
       for (const fc of await finnishRoadCams()) {
+        // Skip road cams that are already in our own list
+        if (CAMS.some((c) => c.url && c.url.includes(fc.fi))) continue;
         options.push({ value: fc, cam: resolveCam(fc), km: distanceKm(r.latitude, r.longitude, fc.a, fc.o) });
       }
     } catch { /* road cams unavailable right now */ }
   }
+  // Windy also sends a small picture of each camera, kept here by camera number
+  const windyPics = {};
   try {
     for (const o of await windyNearby(r.latitude, r.longitude)) {
+      windyPics[o.value.windy] = o.pic;
       // Skip Windy cameras that are already in our own list
       if (!CAMS.some((c) => c.windy === o.value.windy)) options.push(o);
     }
@@ -646,7 +658,7 @@ async function chooseCity(r) {
   const nearby = options.filter((o) => o.km < 300).slice(0, 5);
 
   camOptions.replaceChildren();
-  const radio = (label, sub, value, checked) => {
+  const radio = (label, sub, value, checked, thumb) => {
     const row = el("label", "cam-option");
     const input = document.createElement("input");
     input.type = "radio";
@@ -654,7 +666,9 @@ async function chooseCity(r) {
     input.checked = checked;
     input.camValue = value;
     row.append(input, el("span", "", label));
+    row.title = label; // the full name, in case it's cut short on screen
     if (sub) row.append(el("small", "", sub));
+    if (thumb) row.append(thumb);
     camOptions.append(row);
     return input;
   };
@@ -669,15 +683,53 @@ async function chooseCity(r) {
       `The closest cameras we know are ${Math.round(nearby[0].km)} km or more from ${r.name}.`));
   }
 
-  nearby.forEach((o, i) =>
-    radio(`${o.cam.caption} · ${o.cam.where}`, `${Math.round(o.km)} km away`, o.value, i === 0),
-  );
+  nearby.forEach((o, i) => {
+    const thumb = camThumb(o.cam, windyPics);
+    const sub = [`${Math.round(o.km)} km away`, thumb && thumb.note].filter(Boolean).join(" · ");
+    radio(`${o.cam.caption} · ${o.cam.where}`, sub, o.value, i === 0, thumb && thumb.el);
+  });
   const ytRadio = radio("My own YouTube live link", "Paste the address of a live stream", "youtube", false);
   const ytInput = el("input", "yt-input");
   ytInput.placeholder = "https://www.youtube.com/watch?v=…";
   ytInput.addEventListener("focus", () => (ytRadio.checked = true));
   camOptions.append(ytInput);
   radio("No camera", "Shows the sky: day or night, and the weather", null, nearby.length === 0);
+}
+
+// A small picture for a camera choice, so people can see the view before picking it.
+// Returns { el, note } (note says when the picture isn't the view right now), or null.
+function camThumb(cam, windyPics) {
+  const img = document.createElement("img");
+  img.className = "cam-thumb";
+  img.alt = "";
+  // No picture after all: just show the text
+  img.addEventListener("error", () => (img.closest("a") || img).remove());
+
+  if (cam.type === "youtube") {
+    img.src = `https://i.ytimg.com/vi/${cam.video}/hqdefault_live.jpg`;
+    if (cam.livePreview) return { el: img };
+    img.classList.add("promo");
+    return { el: img, note: "channel picture, not the live view" };
+  }
+  if (cam.type === "image") {
+    img.src = `${cam.url}?t=${Date.now()}`;
+    return { el: img };
+  }
+  const pic = cam.type === "windy" && windyPics[cam.windy];
+  if (pic && pic.src) {
+    // Windy asks that its pictures link back to the camera's page on windy.com
+    img.src = pic.src;
+    const link = el("a", "cam-thumb-link");
+    link.href = pic.link;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.title = "See this webcam bigger on windy.com";
+    link.append(img);
+    if (!pic.old) return { el: link };
+    img.classList.add("promo");
+    return { el: link, note: "old picture" };
+  }
+  return null;
 }
 
 addConfirm.addEventListener("click", () => {
@@ -779,6 +831,10 @@ async function updateWeather() {
         place.view.classList.toggle("night", !isDay);
         place.view.querySelector(".sky-icon").textContent = icon;
       }
+
+      // Windy tiles switch to their last daylight picture at night
+      place.isDay = isDay;
+      showWindyPicture(place);
     });
   } catch (err) {
     console.error("Weather failed:", err);
@@ -816,30 +872,15 @@ async function updateWindy() {
 
   forPlaces.forEach((place) => {
     const w = webcams.find((c) => String(c.webcamId) === place.camInfo.windy);
-    const img = place.view.querySelector("img");
-    const badge = place.view.querySelector(".badge");
-    if (!img) return; // this tile was redrawn meanwhile
+    if (!place.view.querySelector("img")) return; // this tile was redrawn meanwhile
     if (!w || !w.images) {
-      badge.textContent = "Picture not available right now";
+      place.view.querySelector(".badge").textContent = "Picture not available right now";
       return;
     }
 
-    img.src = w.images.current.preview;
+    place.windyCam = w; // remembered, so the weather can switch day/night pictures
     place.view.querySelector("a").href = w.urls.detail;
-
-    // When was the picture taken? Shown in the place's own time.
-    const taken = new Date(w.lastUpdatedOn);
-    const hoursOld = (Date.now() - taken) / 3600000;
-    const time = taken.toLocaleTimeString("en-GB", { timeZone: place.tz, hour: "2-digit", minute: "2-digit" });
-    if (hoursOld < 3) {
-      badge.textContent = `Picture from ${time} · Windy`;
-      img.classList.remove("promo");
-    } else {
-      // An old picture: dim it so nobody thinks it's the view right now
-      const day = taken.toLocaleDateString("en-GB", { timeZone: place.tz, weekday: "short", day: "numeric", month: "short" });
-      badge.textContent = `Old picture · ${day} ${time}`;
-      img.classList.add("promo");
-    }
+    showWindyPicture(place);
 
     // Cameras added by link or search only know their number until now
     if (!CAMS.some((c) => c.windy === place.camInfo.windy)) {
@@ -855,15 +896,59 @@ async function updateWindy() {
 
 setInterval(updateWindy, 10 * 60 * 1000);
 
+// Which Windy picture to show. At night (we know from the weather) a camera
+// mostly sees darkness, so we show its last daylight picture instead, clearly
+// labelled. The button on the tile switches between the two.
+function showWindyPicture(place) {
+  const w = place.windyCam;
+  const img = place.view.querySelector("img");
+  if (!w || !img) return; // not a Windy tile, or its picture hasn't arrived yet
+  const badge = place.view.querySelector(".badge");
+  const button = place.view.querySelector(".day-night");
+
+  // When was the current picture taken? Shown in the place's own time.
+  const taken = new Date(w.lastUpdatedOn);
+  const hoursOld = (Date.now() - taken) / 3600000;
+  const time = taken.toLocaleTimeString("en-GB", { timeZone: place.tz, hour: "2-digit", minute: "2-digit" });
+
+  if (hoursOld >= 3) {
+    // The camera has stopped sending: dim the picture so nobody is fooled
+    const day = taken.toLocaleDateString("en-GB", { timeZone: place.tz, weekday: "short", day: "numeric", month: "short" });
+    img.src = w.images.current.preview;
+    img.classList.add("promo");
+    badge.textContent = `Old picture · ${day} ${time}`;
+    button.hidden = true;
+    return;
+  }
+  img.classList.remove("promo");
+
+  const isNight = place.isDay === false && w.images.daylight;
+  button.hidden = !isNight;
+  if (isNight && !place.showNow) {
+    img.src = w.images.daylight.preview;
+    badge.textContent = "🌙 Dark now · last daylight view";
+    button.textContent = "See it now";
+  } else {
+    img.src = w.images.current.preview;
+    badge.textContent = `Picture from ${time} · Windy`;
+    button.textContent = "Daylight view";
+  }
+}
+
 // Windy cameras near a place, for the "Add a place" dialog
 async function windyNearby(lat, lon) {
-  const data = await windyRequest(`nearby=${lat.toFixed(4)},${lon.toFixed(4)},100&include=location&limit=10`);
+  const data = await windyRequest(`nearby=${lat.toFixed(4)},${lon.toFixed(4)},100&include=location,images,urls&limit=10`);
   return (data.webcams || [])
     .filter((w) => w.status === "active")
     .map((w) => ({
       value: { windy: String(w.webcamId) },
-      cam: { caption: "Windy webcam", where: w.title },
+      cam: { type: "windy", windy: String(w.webcamId), caption: w.title, where: "via Windy" },
       km: distanceKm(lat, lon, w.location.latitude, w.location.longitude),
+      pic: {
+        src: w.images && w.images.current.thumbnail,
+        link: w.urls ? w.urls.detail : `https://windy.com/webcams/${w.webcamId}`,
+        old: Date.now() - new Date(w.lastUpdatedOn) > 3 * 3600000, // over 3 hours old
+      },
     }));
 }
 
