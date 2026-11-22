@@ -22,5 +22,5 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Finnish road cams suggested automatically when adding a Finnish place.
 - Notice when no camera is nearby.
 - GoatCounter visit stats.
-- Windy webcams: real pictures for Calahonda and Kuressaare, and nearby-cam
+- Windy webcams: a real picture for Calahonda, and nearby-cam
   suggestions for any town (London now finds hundreds).

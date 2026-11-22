@@ -78,7 +78,7 @@ const DEFAULT_PLACES = [
   { name: "Sundsberg, Kirkkonummi",  lat: 60.1539, lon: 24.5696, tz: "Europe/Helsinki",  cam: "kirkkonummi-inkila" },
   { name: "Ristiina",                lat: 61.5059, lon: 27.2563, tz: "Europe/Helsinki",  cam: "ristiina-road13" },
   { name: "Toholammi",               lat: 63.7667, lon: 24.25,   tz: "Europe/Helsinki",  cam: "toholampi-road63" },
-  { name: "Kuressaare",              lat: 58.2528, lon: 22.4845, tz: "Europe/Tallinn",   cam: "kuressaare-muratsi" },
+  { name: "Kuressaare",              lat: 58.2528, lon: 22.4845, tz: "Europe/Tallinn",   cam: "kuressaare-square" },
   { name: "Torremolinos",            lat: 36.6219, lon: -4.4999, tz: "Europe/Madrid",    cam: "rincon-victoria-beach" },
   { name: "Calahonda",               lat: 36.4928, lon: -4.7172, tz: "Europe/Madrid",    cam: "fuengirola-beach" },
   { name: "Jersey City",             lat: 40.7178, lon: -74.0431, tz: "America/New_York", cam: "weehawken-lincoln-harbor" },
