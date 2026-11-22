@@ -433,6 +433,7 @@ function makeTile(place, index) {
   };
   btn("◀", "Move left", () => movePlace(index, -1), index === 0);
   btn("▶", "Move right", () => movePlace(index, +1), index === places.length - 1);
+  btn("Change camera", "Pick a different camera for this place", () => openChangeDialog(index));
   btn("✕ Remove", "Remove this place", () => removePlace(index));
   info.append(controls);
 
@@ -559,10 +560,17 @@ const stepCamera = document.getElementById("step-camera");
 const nameInput = document.getElementById("name-input");
 const camOptions = document.getElementById("cam-options");
 const addConfirm = document.getElementById("add-confirm");
+const dialogTitle = dialog.querySelector("h2");
 let chosenCity = null;
+// The same dialog also changes the camera of a place already on the wall.
+// Then this holds that place's number; when adding a new place it's null.
+let changingIndex = null;
 
 function openAddDialog() {
   chosenCity = null;
+  changingIndex = null;
+  dialogTitle.textContent = "Add a place";
+  addConfirm.textContent = "Add to wall";
   searchInput.value = "";
   searchResults.replaceChildren();
   stepSearch.hidden = false;
@@ -570,6 +578,22 @@ function openAddDialog() {
   addConfirm.hidden = true;
   dialog.showModal();
   searchInput.focus();
+}
+
+// "Change camera" on a tile: skip the search and go straight to the camera choices
+function openChangeDialog(i) {
+  const p = places[i];
+  changingIndex = i;
+  dialogTitle.textContent = "Change camera";
+  addConfirm.textContent = "Save";
+  dialog.showModal();
+  // Places don't remember their country, but Finnish time zones mean Finland
+  // (that's what decides whether to suggest Fintraffic road cams)
+  const inFinland = p.tz === "Europe/Helsinki" || p.tz === "Europe/Mariehamn";
+  chooseCity(
+    { name: p.name, latitude: p.lat, longitude: p.lon, timezone: p.tz, country_code: inFinland ? "FI" : "" },
+    p.cam,
+  );
 }
 
 document.getElementById("add-cancel").addEventListener("click", () => dialog.close());
@@ -624,11 +648,15 @@ function finnishRoadCams() {
   return finnishCamsPromise;
 }
 
-async function chooseCity(r) {
+// `current` is the camera a place already has (only when changing its camera),
+// so that one starts out selected.
+async function chooseCity(r, current) {
   chosenCity = r;
   stepSearch.hidden = true;
   stepCamera.hidden = false;
-  addConfirm.hidden = false;
+  // The Save / Add button waits until the camera choices are shown: pressed
+  // earlier, nothing would be selected and the place would lose its camera.
+  addConfirm.hidden = true;
   nameInput.value = r.name;
   camOptions.replaceChildren(el("p", "hint", "Looking for cameras nearby…"));
   // Is it dark there now? Asked straight away, while we look for cameras.
@@ -686,17 +714,38 @@ async function chooseCity(r) {
       `The closest cameras we know are ${Math.round(nearby[0].km)} km or more from ${r.name}.`));
   }
 
+  // Which choice starts out selected?
+  const changing = current !== undefined;
+  const isCurrent = (value) => changing && sameCam(value, current);
+  const currentIsYoutube = changing && current && current.yt;
+  const currentInList = nearby.some((o) => isCurrent(o.value));
+
+  // Changing to a camera that isn't among the suggestions (e.g. one further away):
+  // offer to keep it, at the top
+  if (changing && current && !currentIsYoutube && !currentInList) {
+    const cam = resolveCam(current);
+    if (cam) {
+      const thumb = camThumb(cam, windyPics, isNight);
+      const label = cam.where ? `${cam.caption} · ${cam.where}` : cam.caption;
+      radio(label, "The camera it has now", current, true, thumb && thumb.el);
+    }
+  }
+
   nearby.forEach((o, i) => {
     const thumb = camThumb(o.cam, windyPics, isNight);
     const sub = [`${Math.round(o.km)} km away`, thumb && thumb.note].filter(Boolean).join(" · ");
-    radio(`${o.cam.caption} · ${o.cam.where}`, sub, o.value, i === 0, thumb && thumb.el);
+    const checked = changing ? isCurrent(o.value) : i === 0;
+    radio(`${o.cam.caption} · ${o.cam.where}`, sub, o.value, checked, thumb && thumb.el);
   });
-  const ytRadio = radio("My own YouTube live link", "Paste the address of a live stream", "youtube", false);
+  const ytRadio = radio("My own YouTube live link", "Paste the address of a live stream", "youtube", Boolean(currentIsYoutube));
   const ytInput = el("input", "yt-input");
   ytInput.placeholder = "https://www.youtube.com/watch?v=…";
+  if (currentIsYoutube) ytInput.value = `https://www.youtube.com/watch?v=${current.yt}`;
   ytInput.addEventListener("focus", () => (ytRadio.checked = true));
   camOptions.append(ytInput);
-  radio("No camera", "Shows the sky: day or night, and the weather", null, nearby.length === 0);
+  const noCamChecked = changing ? current === null : nearby.length === 0;
+  radio("No camera", "Shows the sky: day or night, and the weather", null, noCamChecked);
+  addConfirm.hidden = false;
 }
 
 // Is it night at this spot right now? (Open-Meteo knows; if it can't say, assume day.)
@@ -761,6 +810,16 @@ addConfirm.addEventListener("click", () => {
     const id = youtubeId(camOptions.querySelector(".yt-input").value);
     if (!id) return toast("That doesn't look like a YouTube link.");
     cam = { yt: id };
+  }
+  if (changingIndex !== null) {
+    // Changing a place already on the wall: keep where it is, update name and camera
+    const p = places[changingIndex];
+    p.name = nameInput.value.trim() || p.name;
+    p.cam = cam;
+    dialog.close();
+    savePlaces();
+    render();
+    return;
   }
   places.push({
     name: nameInput.value.trim() || chosenCity.name,

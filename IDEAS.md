@@ -4,8 +4,6 @@ A running list. Pick one per session; move it to **Done** when it's live.
 Write ideas down as soon as they come up, even half-formed ones.
 
 ## Next
-- A "change camera" button on each tile in edit mode, so trying another view
-  doesn't mean removing the place and adding it again.
 - Review the family wall with the family: Helsinki, Espoo and Kirkkonummi are
   close together (same time, nearly same weather). Missing places? Tallinn?
 
@@ -32,3 +30,4 @@ Write ideas down as soon as they come up, even half-formed ones.
   suggestions for any town (London now finds hundreds).
 - Preview pictures next to each camera choice when adding a place.
 - Windy tiles show the last daylight picture at night, with a button to see it now.
+- "Change camera" button on each tile in edit mode (also lets you rename the place).
