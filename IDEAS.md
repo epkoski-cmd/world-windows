@@ -4,9 +4,6 @@ A running list. Pick one per session; move it to **Done** when it's live.
 Write ideas down as soon as they come up, even half-formed ones.
 
 ## Next
-- Make the daily check work for YouTube: YouTube asks GitHub's computers to
-  "sign in to confirm you're not a bot", so live streams come back "couldn't
-  check". Fix: a free YouTube Data API key (stored as a GitHub secret).
 - Review the family wall with the family: Helsinki, Espoo and Kirkkonummi are
   close together (same time, nearly same weather). Missing places? Tallinn?
 
@@ -40,5 +37,6 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Jersey City: the EarthCam stream ended; now the Hudson River view from
   17th Street. Old walls are moved over with `replacedBy` in cams.js.
 - The page reloads itself when a newer version of the site is out.
-- Daily camera check on GitHub: road cams not offline (and YouTube streams,
-  but see Next). A stopped camera opens an issue (GitHub emails us).
+- Daily camera check on GitHub: YouTube streams still live (YouTube Data API,
+  key in a GitHub secret), road cams not offline. A stopped camera opens an
+  issue (GitHub emails us).
