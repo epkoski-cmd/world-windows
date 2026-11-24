@@ -32,6 +32,9 @@ import urllib.request
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "").strip()
 SEARCH_RADIUS_KM = 50
 OFFLINE_PICTURE_SIZE = 9897  # Fintraffic's "Image not available" picture
+# Words that show a stream is a camera ("cam" also covers webcam, camera),
+# in a few languages: kamera, cámara, câmera, камера, カメラ, 카메라
+CAMERA_WORDS = re.compile(r"cam|kamera|c[áâ]mara|c[áâ]mera|камера|カメラ|카메라", re.IGNORECASE)
 
 
 def fetch(url, headers=None):
@@ -94,6 +97,9 @@ def youtube_candidates(camera, videos_in_use):
         if item["snippet"].get("liveBroadcastContent") != "live":
             continue
         if not item["status"].get("embeddable", True):
+            continue
+        # Skip music mixes and the like: the title has to sound like a camera
+        if not CAMERA_WORDS.search(item["snippet"]["title"]):
             continue
         where = (item.get("recordingDetails") or {}).get("location") or {}
         km = None
