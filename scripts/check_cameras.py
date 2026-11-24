@@ -13,7 +13,9 @@ Run by GitHub once a day (see .github/workflows/check-cameras.yml), or by hand:
   available" picture instead of a real one.
 
 Prints a short report. If a camera has stopped, it also writes the report to
-camera-report.md and exits with code 1, so the workflow knows to open an issue.
+camera-report.md and the stopped cameras to camera-stopped.json, and exits
+with code 1, so the workflow knows to open an issue and to look for a
+replacement (scripts/fix_cameras.py).
 """
 
 import json
@@ -68,7 +70,7 @@ def youtube_api_statuses(video_ids):
 
 
 def read_cameras():
-    """Pull each camera's id, type, video/url and replacedBy out of cams.js."""
+    """Pull each camera's id, place, type, video/url and replacedBy out of cams.js."""
     text = open("cams.js", encoding="utf-8").read()
     catalogue = text.split("const CAMS = [")[1].split("];")[0]
     cameras = []
@@ -77,8 +79,14 @@ def read_cameras():
         def field(name):
             match = re.search(name + r':\s*"([^"]*)"', entry)
             return match.group(1) if match else None
+        def number(name):
+            match = re.search(name + r":\s*(-?[0-9.]+)", entry)
+            return float(match.group(1)) if match else None
         cameras.append({
             "id": re.match(r'\s*"([^"]+)"', entry).group(1),
+            "where": field("where"),
+            "lat": number("lat"),
+            "lon": number("lon"),
             "type": field("type"),
             "video": field("video"),
             "url": field("url"),
@@ -116,6 +124,7 @@ def check(camera, api_statuses):
 
 def main():
     stopped, unknown = [], []
+    stopped_cameras = []  # for scripts/fix_cameras.py
     cameras = [c for c in read_cameras() if INCLUDE_REPLACED or not c["replacedBy"]]
 
     # With a key, ask the official YouTube API about every stream at once
@@ -140,6 +149,7 @@ def main():
             line += f" (https://www.youtube.com/watch?v={camera['video']})"
         if status == "stopped":
             stopped.append(line)
+            stopped_cameras.append(camera)
         elif status == "unknown":
             unknown.append(line)
 
@@ -155,6 +165,7 @@ def main():
         '`replacedBy: "<new id>"` so walls and share links switch over. Never remove the old entry.',
     ]
     open("camera-report.md", "w", encoding="utf-8").write("\n".join(report) + "\n")
+    json.dump(stopped_cameras, open("camera-stopped.json", "w", encoding="utf-8"), indent=2)
     return 1
 
 
