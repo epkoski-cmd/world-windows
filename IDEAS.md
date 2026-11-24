@@ -8,7 +8,6 @@ Write ideas down as soon as they come up, even half-formed ones.
 ## Maybe later
 - Day/night switching: show a different cam (or the sky) when it's dark.
 - Two cams per place, swipe between them.
-- "Sunrise somewhere": highlight the place where the sun is rising right now.
 - Ask the family what they'd want to see.
 - Learn to run a small server (e.g. a free Cloudflare Worker) that adds the
   Windy API key itself, so the key no longer sits in the public code.
@@ -43,3 +42,6 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Camera check suggests a fix: when a camera stops, it finds a working one
   nearby (live YouTube stream or Fintraffic road cam) and prepares the change
   to `cams.js`. We check it and press Merge.
+- Sunrise somewhere: a strip under the header names the next sunrise on the
+  wall ("Kokkola, in 2 h 10 min"); while the sun is rising (15 min before to
+  30 min after) that tile glows gold. Tap the strip to jump to the tile.

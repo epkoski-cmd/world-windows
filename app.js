@@ -444,6 +444,7 @@ function makeTile(place, index) {
 
   tile.append(info);
   place.el = info;
+  place.tile = tile; // remembered, so the sunrise strip can point at it
   return tile;
 }
 
@@ -922,6 +923,7 @@ function updateClocks() {
     place.el.querySelector(".time").textContent = time;
     place.el.querySelector(".day-note").textContent = note;
   });
+  updateSunrise();
 }
 
 setInterval(updateClocks, 15 * 1000);
@@ -973,6 +975,14 @@ async function updateWeather() {
       const sun = place.el.querySelector(".sun");
       sun.className = `sun ${isDay ? "day" : "night"}`;
       sun.textContent = isDay ? `☀ Sunset ${hhmm(w.daily.sunset[0])}` : `☾ Sunrise ${hhmm(nextSunrise)}`;
+      place.sunLine = { className: sun.className, text: sun.textContent };
+
+      // Remember today's and tomorrow's sunrise as real moments in time, for
+      // the "Sunrise somewhere" strip. Open-Meteo gives local clock times
+      // ("08:41"), so we take away the place's offset from UTC to compare them.
+      place.sunrises = w.daily.sunrise
+        .map((t) => ({ local: t, at: Date.parse(t + "Z") - w.utc_offset_seconds * 1000 }))
+        .filter((s) => !Number.isNaN(s.at)); // polar night: no sunrise at all
 
       // Sky tiles (no camera) follow day/night and show the weather icon
       if (place.view.classList.contains("sky")) {
@@ -984,6 +994,7 @@ async function updateWeather() {
       place.isDay = isDay;
       showWindyPicture(place);
     });
+    updateSunrise();
   } catch (err) {
     console.error("Weather failed:", err);
     forPlaces.forEach((p) => (p.el.querySelector(".weather").textContent = "Weather unavailable"));
@@ -991,6 +1002,78 @@ async function updateWeather() {
 }
 
 setInterval(updateWeather, 15 * 60 * 1000);
+
+// ============================================================
+//  Sunrise somewhere
+// ============================================================
+//
+// A strip under the header points at the place on the wall where the sun
+// rises next. While it's actually rising (from 15 minutes before until
+// 30 minutes after), that tile glows gold and the strip says so.
+// Runs with the clocks, every 15 seconds; the times come from the weather.
+
+const RISING_BEFORE = 15 * 60 * 1000;
+const RISING_AFTER = 30 * 60 * 1000;
+const sunriseStrip = document.getElementById("sunrise-strip");
+let sunriseTarget = null; // the place the strip points at
+
+// "in 25 min", "in 2 h 10 min"
+function inHowLong(ms) {
+  const min = Math.max(1, Math.round(ms / 60000));
+  if (min < 60) return `in ${min} min`;
+  const h = Math.floor(min / 60);
+  return min % 60 ? `in ${h} h ${min % 60} min` : `in ${h} h`;
+}
+
+function updateSunrise() {
+  const now = Date.now();
+  const rising = [];
+  let next = null; // { place, at }
+
+  places.forEach((place) => {
+    if (!place.tile || !place.sunrises) return; // weather not loaded yet
+    const risingNow = place.sunrises.find((s) => now >= s.at - RISING_BEFORE && now <= s.at + RISING_AFTER);
+    place.tile.classList.toggle("sunrise-now", !!risingNow);
+    const sun = place.el.querySelector(".sun");
+    if (risingNow) {
+      rising.push(place);
+      sun.className = "sun rising";
+      sun.textContent = `🌅 Sun rising now · ${hhmm(risingNow.local)}`;
+      return;
+    }
+    // Sunrise over: put back the usual sunrise/sunset line from the weather
+    if (sun.classList.contains("rising")) {
+      sun.className = place.sunLine.className;
+      sun.textContent = place.sunLine.text;
+    }
+    const upcoming = place.sunrises.find((s) => s.at > now);
+    if (upcoming && (!next || upcoming.at < next.at)) next = { place, at: upcoming.at };
+  });
+
+  if (rising.length) {
+    const names = rising.map((p) => p.name);
+    const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0];
+    sunriseStrip.textContent = `🌅 The sun is rising in ${list} right now`;
+    sunriseTarget = rising[0];
+  } else if (next) {
+    sunriseStrip.textContent = `🌅 Next sunrise on your wall: ${next.place.name}, ${inHowLong(next.at - now)}`;
+    sunriseTarget = next.place;
+  } else {
+    sunriseTarget = null;
+  }
+  sunriseStrip.classList.toggle("now", rising.length > 0);
+  sunriseStrip.hidden = !sunriseTarget;
+}
+
+// Tap the strip: scroll to that tile and make it flash briefly
+sunriseStrip.addEventListener("click", () => {
+  const tile = sunriseTarget && sunriseTarget.tile;
+  if (!tile || !tile.isConnected) return;
+  tile.scrollIntoView({ behavior: "smooth", block: "center" });
+  tile.classList.remove("flash");
+  void tile.offsetWidth; // restart the animation if tapped twice
+  tile.classList.add("flash");
+});
 
 // ============================================================
 //  Windy webcams (free API key, see WINDY_KEY at the top)

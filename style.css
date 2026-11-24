@@ -312,3 +312,37 @@ body.editing .add-tile.armed { border-color: #2a6fdb; color: var(--text); backgr
 
 /* Note in the add-place window when cameras are missing or far away */
 .notice { margin: 0 0 4px; padding: 10px 12px; border-radius: 8px; background: #2b2615; border: 1px solid #5c4d1f; color: #f0dca0; font-size: 0.9rem; }
+
+/* ---------- Sunrise somewhere ---------- */
+#sunrise-strip {
+  display: block;
+  max-width: 1568px;
+  margin: 8px 16px 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid #3a3320;
+  background: #1f1c14;
+  color: #f0dca0;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+#sunrise-strip[hidden] { display: none; }
+#sunrise-strip::after { content: "  ›"; opacity: 0.7; }
+#sunrise-strip.now {
+  background: linear-gradient(90deg, #4a2a1a, #6b4a1c);
+  border-color: var(--day);
+  color: #fff3d0;
+}
+@media (min-width: 1600px) { #sunrise-strip { margin: 8px auto 0; } }
+
+/* A tile where the sun is rising right now glows gold */
+.tile.sunrise-now { box-shadow: 0 0 0 2px var(--day), 0 0 24px rgba(255, 170, 80, 0.45); }
+.sun.rising { color: #ffb86b; font-weight: 600; }
+
+/* Brief flash when the strip is tapped */
+.tile.flash { animation: tile-flash 1.4s ease-out; }
+@keyframes tile-flash {
+  0%, 30% { box-shadow: 0 0 0 3px var(--day), 0 0 30px rgba(255, 200, 100, 0.7); }
+  100% { box-shadow: none; }
+}
