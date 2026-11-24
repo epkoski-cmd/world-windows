@@ -1083,11 +1083,18 @@ function showWindyPicture(place) {
   }
 }
 
-// Windy cameras near a place, for the "Add a place" dialog
+// Windy cameras near a place, for the "Add a place" dialog.
+// First we look within 100 km. Remote places (e.g. Mendoza) may have only a
+// couple of cameras that close, so if fewer than 5 turn up we look again
+// within 250 km, the furthest Windy allows.
 async function windyNearby(lat, lon) {
-  const data = await windyRequest(`nearby=${lat.toFixed(4)},${lon.toFixed(4)},100&include=location,images,urls&limit=50`);
-  return (data.webcams || [])
-    .filter((w) => w.status === "active")
+  const search = async (km) => {
+    const data = await windyRequest(`nearby=${lat.toFixed(4)},${lon.toFixed(4)},${km}&include=location,images,urls&limit=50`);
+    return (data.webcams || []).filter((w) => w.status === "active");
+  };
+  let webcams = await search(100);
+  if (webcams.length < 5) webcams = await search(250);
+  return webcams
     .map((w) => ({
       value: { windy: String(w.webcamId) },
       cam: { type: "windy", windy: String(w.webcamId), caption: w.title, where: "via Windy" },

@@ -10,8 +10,6 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Two cams per place, swipe between them.
 - "Sunrise somewhere": highlight the place where the sun is rising right now.
 - Ask the family what they'd want to see.
-- Search Windy up to 250 km when nothing is found within 100 km
-  (helps remote places; e.g. Mendoza goes from 2 cams to 20).
 - Learn to run a small server (e.g. a free Cloudflare Worker) that adds the
   Windy API key itself, so the key no longer sits in the public code.
 
@@ -40,3 +38,5 @@ Write ideas down as soon as they come up, even half-formed ones.
   issue (GitHub emails us).
 - Family wall reviewed: Espoo shows Ringside Golf, Kokkola added (Ohtakari
   seashore), Torremolinos and Calahonda became one Malaga tile (La Caleta).
+- Remote places: when Windy finds fewer than 5 cameras within 100 km, it
+  looks again up to 250 km (e.g. Mendoza).
