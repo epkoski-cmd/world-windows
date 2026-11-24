@@ -72,7 +72,9 @@ const CAMS = [
   // This stream ended in Nov 2026; walls that still use it get the 17th Street view
   { id: "weehawken-lincoln-harbor", where: "Lincoln Harbor, Weehawken", lat: 40.7616, lon: -74.0237,
     caption: "Hudson waterfront · EarthCam", type: "youtube", video: "sixP_dAJ8D4", livePreview: true,
-    replacedBy: "nyc-hudson-17th" },
+    replacedBy: "weehawken-lincoln-harbor-2" },
+  { id: "weehawken-lincoln-harbor-2", where: "Near Lincoln Harbor, Weehawken", lat: 40.7535, lon: -73.983,
+    caption: "Live view · Volcoholics - Wild Horizons", type: "youtube", video: "JkkMj6V2IJg" },
   { id: "nyc-hudson-17th", where: "17th Street, Manhattan", lat: 40.7445, lon: -74.0085,
     caption: "Hudson River, looking at Jersey City · Craig Nevill-Manning", type: "youtube",
     video: "kE_N1WY7UAY", livePreview: true },
