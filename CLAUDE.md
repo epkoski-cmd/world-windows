@@ -56,6 +56,14 @@ Ideas and next steps live in `IDEAS.md`.
   morning. If a camera has stopped, it opens a `dead-camera` issue (or comments on
   the open one). Run it by hand: `gh workflow run check-cameras.yml`; add
   `-f include_replaced=true` for a test run that always finds the old Jersey City stream.
+- When a camera has stopped, `scripts/fix_cameras.py` looks for a working one
+  nearby (YouTube Data API search, or the nearest Fintraffic road cam), adds it
+  to `cams.js` with `replacedBy` on the old one, bumps `?v=`, and pushes branch
+  `fix-camera/<id>`. The workflow opens a pull request if GitHub allows it
+  (Settings → Actions → "Allow GitHub Actions to create and approve pull
+  requests"); otherwise the issue links to a one-tap "Create pull request" page.
+  Nothing goes live until someone checks the suggestion and merges it.
+  New entries get no `livePreview`; add it by hand if the preview shows the real view.
 - GitHub pauses scheduled workflows after 60 days without commits; re-enable under Actions.
 - YouTube streams are checked with the YouTube Data API, key in the GitHub secret
   `YOUTUBE_API_KEY` (never in the code). Without it the script reads YouTube

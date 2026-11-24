@@ -40,3 +40,6 @@ Write ideas down as soon as they come up, even half-formed ones.
   seashore), Torremolinos and Calahonda became one Malaga tile (La Caleta).
 - Remote places: when Windy finds fewer than 5 cameras within 100 km, it
   looks again up to 250 km (e.g. Mendoza).
+- Camera check suggests a fix: when a camera stops, it finds a working one
+  nearby (live YouTube stream or Fintraffic road cam) and prepares the change
+  to `cams.js`. We check it and press Merge.

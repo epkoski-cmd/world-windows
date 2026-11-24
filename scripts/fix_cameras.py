@@ -209,7 +209,9 @@ def main():
         lat = round(best["lat"], 4) if best["lat"] is not None else camera["lat"]
         lon = round(best["lon"], 4) if best["lon"] is not None else camera["lon"]
         if camera["type"] == "youtube":
-            entry = (f'  {{ id: "{replacement_id}", where: "{clean(camera["where"])}", lat: {lat}, lon: {lon},\n'
+            # Same name if it's right there; "Near ..." if it's further away
+            where = camera["where"] if (best["km"] or 0) < 1 else f"Near {camera['where']}"
+            entry = (f'  {{ id: "{replacement_id}", where: "{clean(where)}", lat: {lat}, lon: {lon},\n'
                      f'    caption: "Live view · {clean(best["channel"])}", type: "youtube", video: "{best["video"]}" }},')
             link = lambda c: f"https://www.youtube.com/watch?v={c['video']}"
             describe = lambda c: f"{c['title']} · {c['channel']}"
