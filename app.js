@@ -320,10 +320,22 @@ function makeView(place, cam) {
     // Still camera: add ?t=… so the browser fetches a fresh copy, not a cached one
     const img = document.createElement("img");
     img.alt = `Camera near ${place.name}`;
-    const reload = () => (img.src = `${cam.url}?t=${Date.now()}`);
+    // (but not while someone is looking at the earlier daylight picture)
+    const reload = () => { if (!place.showDaylight) img.src = `${cam.url}?t=${Date.now()}`; };
     reload();
     place.timers.push(setInterval(reload, 10 * 60 * 1000));
     view.append(img, el("span", "badge", "Updates every 10 min"));
+    // Finnish road cams keep 24 hours of pictures, so at night a button
+    // can show the one taken around midday (see showRoadCamPicture)
+    if (roadCamPreset(cam)) {
+      const dayNight = el("button", "close-live day-night");
+      dayNight.hidden = true;
+      dayNight.addEventListener("click", () => {
+        place.showDaylight = !place.showDaylight;
+        showRoadCamPicture(place);
+      });
+      view.append(dayNight);
+    }
   } else if (cam && cam.type === "windy") {
     // Windy pictures: updateWindy() fills in the picture and the badge.
     // Windy asks that every picture links back to the camera's page there.
@@ -977,6 +989,13 @@ async function updateWeather() {
       sun.textContent = isDay ? `☀ Sunset ${hhmm(w.daily.sunset[0])}` : `☾ Sunrise ${hhmm(nextSunrise)}`;
       place.sunLine = { className: sun.className, text: sun.textContent };
 
+      // Middle of today's daylight (halfway from sunrise to sunset): the
+      // brightest moment, used to pick a road cam's "Daylight view" picture.
+      // Missing in polar night, when the sun doesn't rise at all.
+      const rise = Date.parse(w.daily.sunrise[0] + "Z");
+      const set = Date.parse(w.daily.sunset[0] + "Z");
+      place.midday = set > rise ? (rise + set) / 2 - w.utc_offset_seconds * 1000 : null;
+
       // Remember today's and tomorrow's sunrise as real moments in time, for
       // the "Sunrise somewhere" strip. Open-Meteo gives local clock times
       // ("08:41"), so we take away the place's offset from UTC to compare them.
@@ -993,6 +1012,7 @@ async function updateWeather() {
       // Windy tiles switch to their last daylight picture at night
       place.isDay = isDay;
       showWindyPicture(place);
+      showRoadCamPicture(place);
     });
     updateSunrise();
   } catch (err) {
@@ -1162,6 +1182,80 @@ function showWindyPicture(place) {
   } else {
     img.src = w.images.current.preview;
     badge.textContent = `${isNight ? "🌙 " : ""}Picture from ${time} · Windy`;
+    button.textContent = "☀ Daylight view";
+  }
+}
+
+// ============================================================
+//  Road cams at night (Fintraffic keeps 24 hours of pictures)
+// ============================================================
+//
+// Like Windy tiles: the newest (dark) picture stays first, so you can see it's
+// night there. A "Daylight view" button shows the picture from around the
+// middle of the most recent day instead. The 24-hour list is only fetched
+// when someone presses the button.
+
+// "C1053902" for a Fintraffic road cam, otherwise null
+function roadCamPreset(cam) {
+  const m = cam && cam.url && cam.url.match(/weathercam\.digitraffic\.fi\/(C\d{7})\.jpg/);
+  return m ? m[1] : null;
+}
+
+const OFFLINE_PICTURE_BYTES = 9897; // Fintraffic's "camera offline" placeholder
+
+async function daylightRoadPicture(place) {
+  const preset = roadCamPreset(place.camInfo);
+  // Most recent midday that has already happened (before sunrise: yesterday's)
+  let target = place.midday;
+  if (target > Date.now()) target -= 24 * 3600 * 1000;
+
+  const station = preset.slice(0, 6); // pictures are listed per station: C10539
+  const data = await (await fetch(`https://tie.digitraffic.fi/api/weathercam/v1/stations/${station}/history`)).json();
+  const history = (data.presets.find((p) => p.id === preset) || {}).history || [];
+  let best = null;
+  history.forEach((h) => {
+    if (h.sizeBytes === OFFLINE_PICTURE_BYTES) return;
+    const off = Math.abs(Date.parse(h.lastModified) - target);
+    if (!best || off < best.off) best = { off, url: h.imageUrl, taken: new Date(h.lastModified) };
+  });
+  // More than 2 hours away from midday isn't really a daylight picture
+  return best && best.off < 2 * 3600 * 1000 ? best : null;
+}
+
+async function showRoadCamPicture(place) {
+  const button = place.view.querySelector(".day-night");
+  if (!roadCamPreset(place.camInfo) || !button) return;
+  const img = place.view.querySelector("img");
+  const badge = place.view.querySelector(".badge");
+
+  const isNight = place.isDay === false && place.midday;
+  button.hidden = !isNight;
+  if (!isNight) place.showDaylight = false; // morning came: back to the live picture
+
+  if (isNight && place.showDaylight) {
+    button.textContent = "Loading…";
+    try {
+      place.daylightPic ??= await daylightRoadPicture(place);
+    } catch (err) {
+      console.error("Road cam history failed:", err);
+    }
+    if (!place.showDaylight) return; // pressed again while loading
+    const pic = place.daylightPic;
+    if (!pic) {
+      place.showDaylight = false;
+      toast("No daylight picture from this camera in the last day.");
+      return showRoadCamPicture(place);
+    }
+    const time = pic.taken.toLocaleTimeString("en-GB", { timeZone: place.tz, hour: "2-digit", minute: "2-digit" });
+    const day = pic.taken.toLocaleDateString("en-GB", { timeZone: place.tz, weekday: "short" });
+    img.src = pic.url;
+    badge.textContent = `☀ Earlier daylight view · ${day} ${time}`;
+    button.textContent = "See it now";
+  } else {
+    // Only reload if we were showing the daylight picture, so it's not fetched twice
+    if (img.src.includes("versionId=")) img.src = `${place.camInfo.url}?t=${Date.now()}`;
+    place.daylightPic = null; // pick a fresh one next time
+    badge.textContent = `${isNight ? "🌙 " : ""}Updates every 10 min`;
     button.textContent = "☀ Daylight view";
   }
 }

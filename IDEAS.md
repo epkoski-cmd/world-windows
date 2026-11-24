@@ -6,7 +6,7 @@ Write ideas down as soon as they come up, even half-formed ones.
 ## Next
 
 ## Maybe later
-- Day/night switching: show a different cam (or the sky) when it's dark.
+- A second "night camera" per place (e.g. a lit city cam), shown after sunset.
 - Two cams per place, swipe between them.
 - Ask the family what they'd want to see.
 - Learn to run a small server (e.g. a free Cloudflare Worker) that adds the
@@ -45,3 +45,6 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Sunrise somewhere: a strip under the header names the next sunrise on the
   wall ("Kokkola, in 2 h 10 min"); while the sun is rising (15 min before to
   30 min after) that tile glows gold. Tap the strip to jump to the tile.
+- Day/night for road cams: at night, Fintraffic road cams get a "Daylight view"
+  button (like Windy tiles) showing the picture from around midday, taken
+  from Fintraffic's 24-hour picture history.
