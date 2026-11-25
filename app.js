@@ -60,6 +60,19 @@ function toast(message) {
 //   { fi: "C0350501", w: "…", a: lat, o: lon } – a Finnish road cam (Fintraffic)
 //   { windy: "1649025487" }               – any webcam on windy.com
 //   null                                  – no camera: show the sky instead
+//
+// A place can also have a second camera, `cam2` (same kinds, but never null).
+// The tile then lets you swipe between the two views.
+
+// The cameras of a place, in order: [cam] or [cam, cam2]
+function placeCams(place) {
+  return place.cam2 ? [place.cam, place.cam2] : [place.cam];
+}
+
+// Do two places show the same camera(s)?
+function sameCams(a, b) {
+  return sameCam(a.cam, b.cam) && sameCam(a.cam2, b.cam2);
+}
 
 function resolveCam(cam) {
   if (!cam) return null;
@@ -102,9 +115,14 @@ function cameraCaption(place, cam) {
 //  Saving and loading the wall
 // ============================================================
 
-// Places are packed small for the link: [name, lat, lon, timeZone, cam]
+// Places are packed small for saving: [name, lat, lon, timeZone, cam, cam2]
+// (cam2 only when the place has a second camera)
 function pack(places) {
-  const rows = places.map((p) => [p.name, +p.lat.toFixed(4), +p.lon.toFixed(4), p.tz, p.cam]);
+  const rows = places.map((p) => {
+    const row = [p.name, +p.lat.toFixed(4), +p.lon.toFixed(4), p.tz, p.cam];
+    if (p.cam2) row.push(p.cam2);
+    return row;
+  });
   const bytes = new TextEncoder().encode(JSON.stringify(rows));
   let binary = "";
   bytes.forEach((b) => (binary += String.fromCharCode(b)));
@@ -118,11 +136,15 @@ function unpack(code) {
   // Check everything, because links can come from anywhere
   return rows
     .filter((r) => Array.isArray(r) && typeof r[0] === "string" && isFinite(r[1]) && isFinite(r[2]))
-    .map(([name, lat, lon, tz, cam]) => ({
-      name: name.slice(0, 60), lat: +lat, lon: +lon,
-      tz: isValidTimeZone(tz) ? tz : "UTC",
-      cam: cam ?? null,
-    }));
+    .map(([name, lat, lon, tz, cam, cam2]) => {
+      const place = {
+        name: name.slice(0, 60), lat: +lat, lon: +lon,
+        tz: isValidTimeZone(tz) ? tz : "UTC",
+        cam: cam ?? null,
+      };
+      if (cam2) place.cam2 = cam2;
+      return place;
+    });
 }
 
 function isValidTimeZone(tz) {
@@ -137,6 +159,7 @@ function isValidTimeZone(tz) {
 //   • a family place (from DEFAULT_PLACES) is just its name, spaces as "+"
 //   • any other place is  name,lat,lon,time.zone,camera
 //     e.g.  Puumala,61.52,28.18,Europe.Helsinki,fi.C1053902
+//     and a second camera, if it has one, goes on the end:  ...,camera,camera2
 //     (the "/" in time zones is written as ".", cameras are a catalogue id,
 //      yt.VIDEO_ID, fi.FINTRAFFIC_ID, windy.WEBCAM_ID, or empty for no camera)
 // Characters like * _ ~ are avoided: WhatsApp would turn them into formatting.
@@ -149,7 +172,7 @@ function sameCam(a, b) {
 }
 
 function isFamilyPlace(p) {
-  return DEFAULT_PLACES.some((d) => d.name === p.name && sameCam(d.cam, p.cam));
+  return DEFAULT_PLACES.some((d) => d.name === p.name && sameCams(d, p));
 }
 
 function camToText(cam) {
@@ -171,28 +194,31 @@ function camFromText(t) {
 
 function toLink(places) {
   return places
-    .map((p) =>
-      isFamilyPlace(p)
-        ? enc(p.name)
-        : [enc(p.name), p.lat.toFixed(2), p.lon.toFixed(2), p.tz.replace(/\//g, "."), camToText(p.cam)].join(","),
-    )
+    .map((p) => {
+      if (isFamilyPlace(p)) return enc(p.name);
+      const fields = [enc(p.name), p.lat.toFixed(2), p.lon.toFixed(2), p.tz.replace(/\//g, "."), camToText(p.cam)];
+      if (p.cam2) fields.push(camToText(p.cam2));
+      return fields.join(",");
+    })
     .join("/");
 }
 
 function fromLink(text) {
   return text.split("/").filter(Boolean).map((token) => {
-    const [name, lat, lon, tz, cam] = token.split(",").map(dec);
+    const [name, lat, lon, tz, cam, cam2] = token.split(",").map(dec);
     if (lat === undefined) {
       const family = DEFAULT_PLACES.find((d) => d.name.toLowerCase() === name.toLowerCase());
       return family ? { ...family } : null;
     }
     if (!isFinite(lat) || !isFinite(lon)) return null;
     const zone = (tz || "").replace(/\./g, "/");
-    return {
+    const place = {
       name: name.slice(0, 60), lat: +lat, lon: +lon,
       tz: isValidTimeZone(zone) ? zone : "UTC",
       cam: camFromText(cam),
     };
+    if (cam2) place.cam2 = camFromText(cam2);
+    return place;
   }).filter(Boolean);
 }
 
@@ -201,7 +227,7 @@ function shareAddress() {
   const base = location.origin + location.pathname;
   const isFamilyWall =
     places.length === DEFAULT_PLACES.length && places.every((p, i) =>
-      p.name === DEFAULT_PLACES[i].name && sameCam(p.cam, DEFAULT_PLACES[i].cam));
+      p.name === DEFAULT_PLACES[i].name && sameCams(p, DEFAULT_PLACES[i]));
   return isFamilyWall ? base : `${base}#p=${toLink(places)}`;
 }
 
@@ -311,19 +337,25 @@ window.addEventListener("hashchange", () => {
 //  Building the tiles
 // ============================================================
 
-function makeView(place, cam) {
-  const view = el("div", "view");
+// Each camera on a tile is a "slot": its camera, its picture area (view),
+// its own timers, and its own day/night picture choice. A place with two
+// cameras has two slots; `slot.place` leads back to the place.
+let allSlots = []; // every slot on the wall now, so render() can stop their timers
+
+function makeView(slot) {
+  const { place, cam } = slot;
+  const view = (slot.view = el("div", "view"));
 
   if (cam && cam.type === "youtube") {
-    showYoutubePreview(view, place, cam);
+    showYoutubePreview(slot);
   } else if (cam && cam.type === "image") {
     // Still camera: add ?t=… so the browser fetches a fresh copy, not a cached one
     const img = document.createElement("img");
     img.alt = `Camera near ${place.name}`;
     // (but not while someone is looking at the earlier daylight picture)
-    const reload = () => { if (!place.showDaylight) img.src = `${cam.url}?t=${Date.now()}`; };
+    const reload = () => { if (!slot.showDaylight) img.src = `${cam.url}?t=${Date.now()}`; };
     reload();
-    place.timers.push(setInterval(reload, 10 * 60 * 1000));
+    slot.timers.push(setInterval(reload, 10 * 60 * 1000));
     view.append(img, el("span", "badge", "Updates every 10 min"));
     // Finnish road cams keep 24 hours of pictures, so at night a button
     // can show the one taken around midday (see showRoadCamPicture)
@@ -331,8 +363,8 @@ function makeView(place, cam) {
       const dayNight = el("button", "close-live day-night");
       dayNight.hidden = true;
       dayNight.addEventListener("click", () => {
-        place.showDaylight = !place.showDaylight;
-        showRoadCamPicture(place);
+        slot.showDaylight = !slot.showDaylight;
+        showRoadCamPicture(slot);
       });
       view.append(dayNight);
     }
@@ -351,8 +383,8 @@ function makeView(place, cam) {
     const dayNight = el("button", "close-live day-night");
     dayNight.hidden = true;
     dayNight.addEventListener("click", () => {
-      place.showDaylight = !place.showDaylight;
-      showWindyPicture(place);
+      slot.showDaylight = !slot.showDaylight;
+      showWindyPicture(slot);
     });
     view.append(link, el("span", "badge", "Loading picture…"), dayNight);
   } else {
@@ -365,9 +397,10 @@ function makeView(place, cam) {
 
 // YouTube tiles start as a still preview. The video (and any ads the stream
 // owner has switched on) only loads when someone presses "Watch live".
-function showYoutubePreview(view, place, cam) {
-  (place.timers || []).forEach(clearInterval);
-  place.timers = [];
+function showYoutubePreview(slot) {
+  const { place, cam, view } = slot;
+  slot.timers.forEach(clearInterval);
+  slot.timers = [];
   view.replaceChildren();
 
   // YouTube keeps a preview frame of each live stream, updated every few minutes.
@@ -389,10 +422,10 @@ function showYoutubePreview(view, place, cam) {
   // A missing picture sometimes arrives as a tiny 120×90 grey placeholder instead of an error
   img.addEventListener("load", () => { if (img.naturalWidth <= 120) fallback(); });
   load();
-  place.timers.push(setInterval(load, 5 * 60 * 1000));
+  slot.timers.push(setInterval(load, 5 * 60 * 1000));
 
   const play = el("button", "watch-live", "▶ Watch live");
-  play.addEventListener("click", () => playYoutube(view, place, cam));
+  play.addEventListener("click", () => playYoutube(slot));
 
   // Many channels show a promo picture instead of the current view
   // (a sunny summer photo at midnight). Dim those so nobody is fooled.
@@ -404,9 +437,10 @@ function showYoutubePreview(view, place, cam) {
   view.append(img, badge, play);
 }
 
-function playYoutube(view, place, cam) {
-  (place.timers || []).forEach(clearInterval);
-  place.timers = [];
+function playYoutube(slot) {
+  const { place, cam, view } = slot;
+  slot.timers.forEach(clearInterval);
+  slot.timers = [];
   // mute=1 is needed for autoplay; playsinline keeps it in the tile on phones
   const iframe = document.createElement("iframe");
   iframe.src = `https://www.youtube.com/embed/${cam.video}?autoplay=1&mute=1&playsinline=1&rel=0`;
@@ -416,18 +450,87 @@ function playYoutube(view, place, cam) {
 
   const close = el("button", "close-live", "✕ Stop");
   close.title = "Stop the video and go back to the preview";
-  close.addEventListener("click", () => showYoutubePreview(view, place, cam));
+  close.addEventListener("click", () => showYoutubePreview(slot));
 
   view.replaceChildren(iframe, close);
 }
 
+// ---------- Two cameras: swipe between them ----------
+//
+// The two views sit side by side in a strip that scrolls sideways and snaps
+// to one whole view at a time (CSS scroll-snap does the swiping for us).
+// Dots underneath say which one you're looking at; tapping a dot jumps to it.
+// On computers with a mouse, arrow buttons appear when you point at the tile.
+
+function makeSwiper(place) {
+  const box = el("div", "swiper");
+  const strip = el("div", "views");
+  place.slots.forEach((slot) => strip.append(slot.view));
+
+  const dots = el("div", "dots");
+  place.slots.forEach((slot, i) => {
+    const dot = el("button", "dot");
+    dot.title = `Camera ${i + 1}`;
+    dot.setAttribute("aria-label", `Show camera ${i + 1}`);
+    dot.addEventListener("click", () => scrollToSlot(place, i));
+    dots.append(dot);
+  });
+
+  const prev = el("button", "arrow prev", "‹");
+  prev.setAttribute("aria-label", "Previous camera");
+  prev.addEventListener("click", () => scrollToSlot(place, place.shown - 1));
+  const next = el("button", "arrow next", "›");
+  next.setAttribute("aria-label", "Next camera");
+  next.addEventListener("click", () => scrollToSlot(place, place.shown + 1));
+
+  // Which view is in the middle now? (Changes halfway through a swipe.)
+  strip.addEventListener("scroll", () => {
+    const i = Math.round(strip.scrollLeft / strip.clientWidth);
+    if (i !== place.shown) showingSlot(place, i);
+  }, { passive: true });
+
+  box.append(strip, dots, prev, next);
+  place.strip = strip;
+  place.swiper = box;
+  return box;
+}
+
+function scrollToSlot(place, i, smooth = true) {
+  if (!place.strip || i < 0 || i >= place.slots.length) return;
+  place.strip.scrollTo({ left: i * place.strip.clientWidth, behavior: smooth ? "smooth" : "instant" });
+}
+
+// Called when a different camera comes into view (or when the tile is built)
+function showingSlot(place, i) {
+  const leaving = place.slots[place.shown];
+  place.shown = i;
+  // A live video on the camera we swiped away from: stop it (saves data, and any ads)
+  if (leaving && leaving !== place.slots[i] && leaving.view.querySelector("iframe")) {
+    showYoutubePreview(leaving);
+  }
+  if (place.swiper) {
+    place.swiper.querySelectorAll(".dot").forEach((d, n) => d.classList.toggle("on", n === i));
+    place.swiper.querySelector(".prev").hidden = i === 0;
+    place.swiper.querySelector(".next").hidden = i === place.slots.length - 1;
+  }
+  // The caption under the tile describes the camera you're looking at
+  if (place.el) place.el.querySelector(".caption").textContent = cameraCaption(place, place.slots[i].cam);
+}
+
 function makeTile(place, index) {
-  const cam = resolveCam(place.cam);
-  place.camInfo = cam; // remembered for updateWindy
   const tile = el("article", "tile");
-  place.timers = [];
-  place.view = makeView(place, cam);
-  tile.append(place.view);
+  // One slot per camera. A second camera we can't show (e.g. a broken link) is skipped.
+  place.slots = placeCams(place)
+    .map((cam) => resolveCam(cam))
+    .filter((cam, i) => i === 0 || cam)
+    .map((cam) => ({ place, cam, timers: [] }));
+  place.slots.forEach((slot) => makeView(slot));
+  allSlots.push(...place.slots);
+  // Which camera is in view: kept when the wall is redrawn (e.g. after editing)
+  place.shown = Math.min(place.shown || 0, place.slots.length - 1);
+  place.swiper = null;
+  place.strip = null;
+  tile.append(place.slots.length > 1 ? makeSwiper(place) : place.slots[0].view);
 
   const info = el("div", "info");
   info.append(
@@ -436,7 +539,7 @@ function makeTile(place, index) {
     el("div", "weather", "Loading weather…"),
     el("div", "day-note"),
     el("div", "sun"),
-    el("div", "caption", cameraCaption(place, cam)),
+    el("div", "caption"),
   );
 
   // Edit controls (only visible in edit mode)
@@ -448,24 +551,37 @@ function makeTile(place, index) {
     b.addEventListener("click", onClick);
     controls.append(b);
   };
+  const two = place.slots.length > 1;
   btn("◀", "Move left", () => movePlace(index, -1), index === 0);
   btn("▶", "Move right", () => movePlace(index, +1), index === places.length - 1);
-  btn("Change camera", "Pick a different camera for this place", () => openChangeDialog(index));
+  // With two cameras, this changes the one you're looking at
+  btn(two ? "Change this camera" : "Change camera", "Pick a different camera for this place",
+    () => openChangeDialog(index, place.shown));
+  if (place.cam && !place.cam2) {
+    btn("+ 2nd camera", "Add a second camera to swipe to", () => openChangeDialog(index, 1));
+  }
   btn("✕ Remove", "Remove this place", () => removePlace(index));
   info.append(controls);
 
   tile.append(info);
   place.el = info;
   place.tile = tile; // remembered, so the sunrise strip can point at it
+  showingSlot(place, place.shown);
   return tile;
 }
 
 function render() {
   // Stop timers of the old tiles before throwing them away
-  places.forEach((p) => (p.timers || []).forEach(clearInterval));
+  allSlots.forEach((slot) => slot.timers.forEach(clearInterval));
+  allSlots = [];
   wall.replaceChildren();
 
   places.forEach((place, i) => wall.append(makeTile(place, i)));
+  // Two-camera tiles that were showing their second camera: scroll back to it.
+  // (Waits a moment, until the browser knows how wide the tiles are.)
+  requestAnimationFrame(() =>
+    places.forEach((p) => { if (p.shown > 0) scrollToSlot(p, p.shown, false); }),
+  );
 
   // The "add a place" tile, shown in edit mode
   const add = el("button", "tile add-tile");
@@ -583,6 +699,8 @@ let chosenCity = null;
 // The same dialog also changes the camera of a place already on the wall.
 // Then this holds that place's number; when adding a new place it's null.
 let changingIndex = null;
+// ...and which of its cameras: 0 = the first, 1 = the second (or a new second one)
+let changingSlot = 0;
 
 function openAddDialog() {
   chosenCity = null;
@@ -598,19 +716,23 @@ function openAddDialog() {
   searchInput.focus();
 }
 
-// "Change camera" on a tile: skip the search and go straight to the camera choices
-function openChangeDialog(i) {
+// "Change camera" or "+ 2nd camera" on a tile: skip the search and go
+// straight to the camera choices. `slot` says which camera: 0 or 1.
+function openChangeDialog(i, slot) {
   const p = places[i];
   changingIndex = i;
-  dialogTitle.textContent = "Change camera";
-  addConfirm.textContent = "Save";
+  changingSlot = slot;
+  const addingSecond = slot === 1 && !p.cam2;
+  dialogTitle.textContent = addingSecond ? "Add a second camera" : "Change camera";
+  addConfirm.textContent = addingSecond ? "Add camera" : "Save";
   dialog.showModal();
   // Places don't remember their country, but Finnish time zones mean Finland
   // (that's what decides whether to suggest Fintraffic road cams)
   const inFinland = p.tz === "Europe/Helsinki" || p.tz === "Europe/Mariehamn";
   chooseCity(
     { name: p.name, latitude: p.lat, longitude: p.lon, timezone: p.tz, country_code: inFinland ? "FI" : "" },
-    p.cam,
+    // The camera it has now (undefined when adding a second one: nothing to keep)
+    slot === 1 ? p.cam2 : p.cam,
   );
 }
 
@@ -730,9 +852,14 @@ async function chooseCity(r, current) {
   } catch { /* Windy unavailable right now */ }
   options.sort((a, b) => a.km - b.km);
 
+  // When the place has (or is getting) two cameras, don't offer the other one again
+  const place = changingIndex === null ? null : places[changingIndex];
+  const otherCam = place ? placeCams(place)[1 - changingSlot] : null;
+  const isOtherCam = (value) => Boolean(otherCam) && sameCam(value, otherCam);
+
   // Pick 5 to show: the nearest, but at most 2 road cams, so other views get a turn.
   // (If there aren't enough other cameras, more road cams fill the gaps.)
-  const all = options.filter((o) => o.km < 300);
+  const all = options.filter((o) => o.km < 300 && !isOtherCam(o.value));
   const nearby = [];
   let roadCams = 0;
   for (const o of all) {
@@ -825,7 +952,14 @@ async function chooseCity(r, current) {
   ytInput.addEventListener("focus", () => (ytRadio.checked = true));
   camOptions.append(ytInput);
   const noCamChecked = changing ? current === null : nearby.length === 0;
-  radio("No camera", "Shows the sky: day or night, and the weather", null, noCamChecked);
+  // "No camera" means something different when a place has two cameras
+  if (place && changingSlot === 1 && !place.cam2) {
+    radio("No second camera", "Keep just the one camera", null, noCamChecked);
+  } else if (place && place.cam2) {
+    radio("Remove this camera", "The other camera stays", null, false);
+  } else {
+    radio("No camera", "Shows the sky: day or night, and the weather", null, noCamChecked);
+  }
   addConfirm.hidden = false;
 }
 
@@ -896,7 +1030,7 @@ addConfirm.addEventListener("click", () => {
     // Changing a place already on the wall: keep where it is, update name and camera
     const p = places[changingIndex];
     p.name = nameInput.value.trim() || p.name;
-    p.cam = cam;
+    setPlaceCam(p, changingSlot, cam);
     dialog.close();
     savePlaces();
     render();
@@ -913,6 +1047,24 @@ addConfirm.addEventListener("click", () => {
   savePlaces();
   render();
 });
+
+// Put a camera (or null: none) in place of camera 0 or 1 of a place
+function setPlaceCam(p, slot, cam) {
+  if (slot === 1) {
+    if (cam) {
+      p.cam2 = cam;
+      p.shown = 1; // show the new camera straight away
+    } else {
+      delete p.cam2;
+    }
+  } else if (cam === null && p.cam2) {
+    // First camera removed: the second one moves up
+    p.cam = p.cam2;
+    delete p.cam2;
+  } else {
+    p.cam = cam;
+  }
+}
 
 // ============================================================
 //  Clocks
@@ -1003,16 +1155,17 @@ async function updateWeather() {
         .map((t) => ({ local: t, at: Date.parse(t + "Z") - w.utc_offset_seconds * 1000 }))
         .filter((s) => !Number.isNaN(s.at)); // polar night: no sunrise at all
 
-      // Sky tiles (no camera) follow day/night and show the weather icon
-      if (place.view.classList.contains("sky")) {
-        place.view.classList.toggle("night", !isDay);
-        place.view.querySelector(".sky-icon").textContent = icon;
-      }
-
-      // Windy tiles switch to their last daylight picture at night
+      // Night or day decides which buttons and pictures each camera shows
       place.isDay = isDay;
-      showWindyPicture(place);
-      showRoadCamPicture(place);
+      place.slots.forEach((slot) => {
+        // Sky tiles (no camera) follow day/night and show the weather icon
+        if (slot.view.classList.contains("sky")) {
+          slot.view.classList.toggle("night", !isDay);
+          slot.view.querySelector(".sky-icon").textContent = icon;
+        }
+        showWindyPicture(slot);
+        showRoadCamPicture(slot);
+      });
     });
     updateSunrise();
   } catch (err) {
@@ -1109,9 +1262,9 @@ function windyRequest(query) {
 }
 
 async function updateWindy() {
-  const forPlaces = places.filter((p) => p.camInfo && p.camInfo.type === "windy");
-  if (forPlaces.length === 0) return;
-  const ids = [...new Set(forPlaces.map((p) => p.camInfo.windy))].join(",");
+  const slots = allSlots.filter((slot) => slot.cam && slot.cam.type === "windy");
+  if (slots.length === 0) return;
+  const ids = [...new Set(slots.map((slot) => slot.cam.windy))].join(",");
 
   let webcams = [];
   try {
@@ -1121,26 +1274,27 @@ async function updateWindy() {
     console.error("Windy failed:", err);
   }
 
-  forPlaces.forEach((place) => {
-    const w = webcams.find((c) => String(c.webcamId) === place.camInfo.windy);
-    if (!place.view.querySelector("img")) return; // this tile was redrawn meanwhile
+  slots.forEach((slot) => {
+    const { place, cam, view } = slot;
+    if (!view.isConnected) return; // this tile was redrawn meanwhile
+    const w = webcams.find((c) => String(c.webcamId) === cam.windy);
     if (!w || !w.images) {
-      place.view.querySelector(".badge").textContent = "Picture not available right now";
+      view.querySelector(".badge").textContent = "Picture not available right now";
       return;
     }
 
-    place.windyCam = w; // remembered, so the weather can switch day/night pictures
-    place.view.querySelector("a").href = w.urls.detail;
-    showWindyPicture(place);
+    slot.windyCam = w; // remembered, so the weather can switch day/night pictures
+    view.querySelector("a").href = w.urls.detail;
+    showWindyPicture(slot);
 
     // Cameras added by link or search only know their number until now
-    if (!CAMS.some((c) => c.windy === place.camInfo.windy)) {
-      Object.assign(place.camInfo, {
+    if (!CAMS.some((c) => c.windy === cam.windy)) {
+      Object.assign(cam, {
         caption: `${w.title} · via Windy`,
         lat: w.location.latitude,
         lon: w.location.longitude,
       });
-      place.el.querySelector(".caption").textContent = cameraCaption(place, place.camInfo);
+      showingSlot(place, place.shown); // refresh the caption
     }
   });
 }
@@ -1150,12 +1304,13 @@ setInterval(updateWindy, 10 * 60 * 1000);
 // Which Windy picture to show. Always the newest one first, even at night:
 // a dark picture tells you it's night there right now, which is the point.
 // At night a button lets you peek at the last daylight picture instead.
-function showWindyPicture(place) {
-  const w = place.windyCam;
-  const img = place.view.querySelector("img");
-  if (!w || !img) return; // not a Windy tile, or its picture hasn't arrived yet
-  const badge = place.view.querySelector(".badge");
-  const button = place.view.querySelector(".day-night");
+function showWindyPicture(slot) {
+  const { place, view } = slot;
+  const w = slot.windyCam;
+  const img = view.querySelector("img");
+  if (!w || !img) return; // not a Windy camera, or its picture hasn't arrived yet
+  const badge = view.querySelector(".badge");
+  const button = view.querySelector(".day-night");
 
   // When was the current picture taken? Shown in the place's own time.
   const taken = new Date(w.lastUpdatedOn);
@@ -1175,7 +1330,7 @@ function showWindyPicture(place) {
 
   const isNight = place.isDay === false && w.images.daylight;
   button.hidden = !isNight;
-  if (isNight && place.showDaylight) {
+  if (isNight && slot.showDaylight) {
     img.src = w.images.daylight.preview;
     badge.textContent = "☀ Earlier daylight view · not now";
     button.textContent = "See it now";
@@ -1203,10 +1358,10 @@ function roadCamPreset(cam) {
 
 const OFFLINE_PICTURE_BYTES = 9897; // Fintraffic's "camera offline" placeholder
 
-async function daylightRoadPicture(place) {
-  const preset = roadCamPreset(place.camInfo);
+async function daylightRoadPicture(slot) {
+  const preset = roadCamPreset(slot.cam);
   // Most recent midday that has already happened (before sunrise: yesterday's)
-  let target = place.midday;
+  let target = slot.place.midday;
   if (target > Date.now()) target -= 24 * 3600 * 1000;
 
   const station = preset.slice(0, 6); // pictures are listed per station: C10539
@@ -1222,29 +1377,30 @@ async function daylightRoadPicture(place) {
   return best && best.off < 2 * 3600 * 1000 ? best : null;
 }
 
-async function showRoadCamPicture(place) {
-  const button = place.view.querySelector(".day-night");
-  if (!roadCamPreset(place.camInfo) || !button) return;
-  const img = place.view.querySelector("img");
-  const badge = place.view.querySelector(".badge");
+async function showRoadCamPicture(slot) {
+  const { place, view } = slot;
+  const button = view.querySelector(".day-night");
+  if (!roadCamPreset(slot.cam) || !button) return;
+  const img = view.querySelector("img");
+  const badge = view.querySelector(".badge");
 
   const isNight = place.isDay === false && place.midday;
   button.hidden = !isNight;
-  if (!isNight) place.showDaylight = false; // morning came: back to the live picture
+  if (!isNight) slot.showDaylight = false; // morning came: back to the live picture
 
-  if (isNight && place.showDaylight) {
+  if (isNight && slot.showDaylight) {
     button.textContent = "Loading…";
     try {
-      place.daylightPic ??= await daylightRoadPicture(place);
+      slot.daylightPic ??= await daylightRoadPicture(slot);
     } catch (err) {
       console.error("Road cam history failed:", err);
     }
-    if (!place.showDaylight) return; // pressed again while loading
-    const pic = place.daylightPic;
+    if (!slot.showDaylight) return; // pressed again while loading
+    const pic = slot.daylightPic;
     if (!pic) {
-      place.showDaylight = false;
+      slot.showDaylight = false;
       toast("No daylight picture from this camera in the last day.");
-      return showRoadCamPicture(place);
+      return showRoadCamPicture(slot);
     }
     const time = pic.taken.toLocaleTimeString("en-GB", { timeZone: place.tz, hour: "2-digit", minute: "2-digit" });
     const day = pic.taken.toLocaleDateString("en-GB", { timeZone: place.tz, weekday: "short" });
@@ -1253,8 +1409,8 @@ async function showRoadCamPicture(place) {
     button.textContent = "See it now";
   } else {
     // Only reload if we were showing the daylight picture, so it's not fetched twice
-    if (img.src.includes("versionId=")) img.src = `${place.camInfo.url}?t=${Date.now()}`;
-    place.daylightPic = null; // pick a fresh one next time
+    if (img.src.includes("versionId=")) img.src = `${slot.cam.url}?t=${Date.now()}`;
+    slot.daylightPic = null; // pick a fresh one next time
     badge.textContent = `${isNight ? "🌙 " : ""}Updates every 10 min`;
     button.textContent = "☀ Daylight view";
   }

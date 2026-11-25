@@ -14,6 +14,8 @@ Ideas and next steps live in `IDEAS.md`.
 ## How the code is laid out
 - Plain HTML, CSS and JavaScript. No frameworks, no build step, no npm.
 - `cams.js` – the camera catalogue (`CAMS`) and the family wall (`DEFAULT_PLACES`).
+  A place can have a second camera `cam2` (swiped to on the tile); links add it as a
+  6th field, so old links without it still work.
   Catalogue `id`s appear in share links: **never rename or remove one**.
 - `app.js` – tiles, edit mode, saving, share links, the add-a-place dialog, clocks, weather.
 - `style.css` – dark theme; edit-only controls show under `body.editing`.

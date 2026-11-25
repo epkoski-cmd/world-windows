@@ -85,14 +85,15 @@ const CAMS = [
 // The wall someone sees the first time they open the site
 // (before they edit anything or open a shared link).
 // cam can be a catalogue id, or null for "no camera".
+// cam2 (optional) is a second camera you can swipe to on the same tile.
 const DEFAULT_PLACES = [
-  { name: "Helsinki",                lat: 60.1695, lon: 24.9355, tz: "Europe/Helsinki",  cam: "helsinki-south-harbour" },
+  { name: "Helsinki",                lat: 60.1695, lon: 24.9355, tz: "Europe/Helsinki",  cam: "helsinki-south-harbour", cam2: "helsinki-lauttasaari" },
   { name: "Espoo",                   lat: 60.2055, lon: 24.6559, tz: "Europe/Helsinki",  cam: "espoo-ringside-golf" },
   { name: "Sundsberg, Kirkkonummi",  lat: 60.1539, lon: 24.5696, tz: "Europe/Helsinki",  cam: "kirkkonummi-inkila" },
   { name: "Ristiina",                lat: 61.5059, lon: 27.2563, tz: "Europe/Helsinki",  cam: "ristiina-road13" },
   { name: "Toholampi",               lat: 63.7667, lon: 24.25,   tz: "Europe/Helsinki",  cam: "toholampi-road63" },
   { name: "Kokkola",                 lat: 63.8385, lon: 23.1307, tz: "Europe/Helsinki",  cam: "kokkola-ohtakari" },
-  { name: "Kuressaare",              lat: 58.2528, lon: 22.4845, tz: "Europe/Tallinn",   cam: "kuressaare-square" },
-  { name: "Malaga",                  lat: 36.7213, lon: -4.4214, tz: "Europe/Madrid",    cam: "malaga-caleta" },
+  { name: "Kuressaare",              lat: 58.2528, lon: 22.4845, tz: "Europe/Tallinn",   cam: "kuressaare-square", cam2: "kuressaare-muratsi" },
+  { name: "Malaga",                  lat: 36.7213, lon: -4.4214, tz: "Europe/Madrid",    cam: "malaga-caleta", cam2: "rincon-victoria-beach" },
   { name: "Jersey City",             lat: 40.7178, lon: -74.0431, tz: "America/New_York", cam: "nyc-hudson-17th" },
 ];

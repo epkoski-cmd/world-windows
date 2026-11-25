@@ -346,3 +346,71 @@ body.editing .add-tile.armed { border-color: #2a6fdb; color: var(--text); backgr
   0%, 30% { box-shadow: 0 0 0 3px var(--day), 0 0 30px rgba(255, 200, 100, 0.7); }
   100% { box-shadow: none; }
 }
+
+/* ---------- Two cameras on one tile: swipe between them ---------- */
+.swiper { position: relative; }
+/* The views sit side by side; the strip scrolls sideways and snaps to one view */
+.views {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain; /* a swipe here shouldn't go "back" in the browser */
+  scrollbar-width: none;
+}
+.views::-webkit-scrollbar { display: none; }
+.views > .view {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+/* Dots at the bottom: which camera you're looking at */
+.dots {
+  position: absolute;
+  bottom: 8px; left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  padding: 2px 4px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1;
+}
+.dot {
+  width: 22px; height: 22px; /* big enough to tap… */
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+}
+.dot::before { /* …but drawn as a small dot */
+  content: "";
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+}
+.dot.on::before { background: #fff; }
+.dot:hover:not(:disabled) { background: transparent; }
+/* Arrows on the sides: only on computers with a mouse, when pointing at the tile */
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px; height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  z-index: 1;
+  display: none;
+}
+.arrow.prev { left: 8px; }
+.arrow.next { right: 8px; }
+.arrow:hover:not(:disabled) { background: rgba(0, 0, 0, 0.8); }
+@media (hover: hover) {
+  .swiper:hover .arrow:not([hidden]) { display: block; }
+}
+body.editing .edit-controls { flex-wrap: wrap; }

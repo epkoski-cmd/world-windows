@@ -7,7 +7,6 @@ Write ideas down as soon as they come up, even half-formed ones.
 
 ## Maybe later
 - A second "night camera" per place (e.g. a lit city cam), shown after sunset.
-- Two cams per place, swipe between them.
 - Ask the family what they'd want to see.
 - Learn to run a small server (e.g. a free Cloudflare Worker) that adds the
   Windy API key itself, so the key no longer sits in the public code.
@@ -48,3 +47,6 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Day/night for road cams: at night, Fintraffic road cams get a "Daylight view"
   button (like Windy tiles) showing the picture from around midday, taken
   from Fintraffic's 24-hour picture history.
+- Two cams per place: swipe between them (dots underneath, arrows with a mouse).
+  Edit mode has "+ 2nd camera"; a playing video stops when you swipe away.
+  Helsinki (Lauttasaari), Kuressaare (Muratsi) and Malaga (Rincón) got a second one.
