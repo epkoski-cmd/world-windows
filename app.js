@@ -392,7 +392,8 @@ function makeView(slot) {
     view.append(el("span", "sky-icon", "…"));
   }
   // Cameras that still show something after dark get a little label at night
-  if (cam && cam.lit) {
+  // (YouTube previews add their own, in showYoutubePreview)
+  if (cam && cam.lit && !view.querySelector(".night-tag")) {
     const tag = el("span", "night-tag", "🌙 Lit at night");
     tag.hidden = true; // shown by pickCameraForTimeOfDay once we know it's night
     view.append(tag);

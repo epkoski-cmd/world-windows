@@ -33,7 +33,7 @@ const CAMS = [
   { id: "espoo-nuuksio", where: "Nuuksio, Espoo", lat: 60.29, lon: 24.55,
     caption: "Forest feeding spot · Feel The Nature", type: "youtube", video: "JWta8Urznhw" },
   { id: "helsinki-south-harbour", where: "South Harbour, Helsinki", lat: 60.1665, lon: 24.9565,
-    caption: "Harbour · Port of Helsinki", type: "youtube", video: "CvOB-Is_yYU", livePreview: true },
+    caption: "Harbour · Port of Helsinki", type: "youtube", video: "CvOB-Is_yYU", livePreview: true, lit: true },
   { id: "ristiina-road13", where: "Road 13, Ostolahti", lat: 61.4533, lon: 27.2646,
     caption: "Road cam · Fintraffic", type: "image", url: "https://weathercam.digitraffic.fi/C0350501.jpg" },
   { id: "kirkkonummi-inkila", where: "Road 50, Inkilä, Kirkkonummi", lat: 60.138, lon: 24.5345,
@@ -47,7 +47,7 @@ const CAMS = [
 
   // ---------- Estonia ----------
   { id: "kuressaare-square", where: "Kuressaare town square", lat: 58.2528, lon: 22.4845,
-    caption: "Town square · Saarte Hääl", type: "youtube", video: "DSVZvGa4ZOw" },
+    caption: "Town square · Saarte Hääl", type: "youtube", video: "DSVZvGa4ZOw", lit: true },
   { id: "kuressaare-muratsi", where: "Muratsi, near Kuressaare", lat: 58.2306, lon: 22.5758,
     caption: "Seaside · via Windy", type: "windy", windy: "1793875438" },
   { id: "tallinn-citycam", where: "Tallinn", lat: 59.437, lon: 24.7536,

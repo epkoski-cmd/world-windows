@@ -6,11 +6,8 @@ Write ideas down as soon as they come up, even half-formed ones.
 ## Next
 
 ## Maybe later
-- A second "night camera" per place (e.g. a lit city cam), shown after sunset.
-  IN PROGRESS (25 Nov 2026, code written but not committed): cameras with
-  `lit: true` in cams.js are shown first at night on two-camera tiles.
-  Still to do: look at camera previews after dark (Helsinki harbour,
-  Lauttasaari, Rincón, Kuressaare), mark the lit ones, then deploy.
+- Night cameras for Malaga: look at La Caleta and Rincón after dark (from
+  about 19:45 Finnish time) and mark a lit one with `lit: true`.
 - Ask the family what they'd want to see.
 
 ## Done
@@ -54,3 +51,6 @@ Write ideas down as soon as they come up, even half-formed ones.
   Helsinki (Lauttasaari), Kuressaare (Muratsi) and Malaga (Rincón) got a second one.
 - Windy key off the public code: a free Cloudflare Worker (`worker/windy.js`)
   adds the key, kept as a Cloudflare secret. Bonus: Windy tiles work on localhost.
+- Night cameras: a camera marked `lit: true` gets a "🌙 Lit at night" label
+  after dark, and a two-camera tile starts on its lit one. Lit so far:
+  South Harbour (Helsinki) and Kuressaare town square.
