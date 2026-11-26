@@ -7,9 +7,11 @@ Write ideas down as soon as they come up, even half-formed ones.
 
 ## Maybe later
 - A second "night camera" per place (e.g. a lit city cam), shown after sunset.
+  IN PROGRESS (25 Nov 2026, code written but not committed): cameras with
+  `lit: true` in cams.js are shown first at night on two-camera tiles.
+  Still to do: look at camera previews after dark (Helsinki harbour,
+  Lauttasaari, Rincón, Kuressaare), mark the lit ones, then deploy.
 - Ask the family what they'd want to see.
-- Learn to run a small server (e.g. a free Cloudflare Worker) that adds the
-  Windy API key itself, so the key no longer sits in the public code.
 
 ## Done
 - Phase 1: the wall with live views, local time, weather, sunrise and sunset.
@@ -50,3 +52,5 @@ Write ideas down as soon as they come up, even half-formed ones.
 - Two cams per place: swipe between them (dots underneath, arrows with a mouse).
   Edit mode has "+ 2nd camera"; a playing video stops when you swipe away.
   Helsinki (Lauttasaari), Kuressaare (Muratsi) and Malaga (Rincón) got a second one.
+- Windy key off the public code: a free Cloudflare Worker (`worker/windy.js`)
+  adds the key, kept as a Cloudflare secret. Bonus: Windy tiles work on localhost.

@@ -20,6 +20,7 @@ Ideas and next steps live in `IDEAS.md`.
 - `app.js` – tiles, edit mode, saving, share links, the add-a-place dialog, clocks, weather.
 - `style.css` – dark theme; edit-only controls show under `body.editing`.
 - `index.html` – page shell, footer attributions, GoatCounter visit counter.
+- `worker/windy.js` – the Cloudflare Worker that adds the Windy key (deployed by hand).
 
 ## Rules learned the hard way
 - **Bump `?v=N` in `index.html`** (CSS and both scripts) whenever a file changes,
@@ -47,11 +48,16 @@ Ideas and next steps live in `IDEAS.md`.
 - Finnish road cams: Fintraffic Digitraffic (CC BY 4.0). Skip presets ending in `09`
   (road surface). Offline cams return a 9897-byte placeholder.
 - YouTube live streams load only after "Watch live" is pressed, to limit ads.
-- Windy Webcams API v3: free key `WINDY_KEY` in `app.js`, visible on purpose,
-  restricted to `github.io`. Picture URLs can expire, so they're fetched fresh on
-  load and every 10 min (one batched `webcamIds=` request). Each picture links
-  back to its Windy page; footer credits windy.com. The key is refused on
-  `localhost`, so test Windy tiles on the live site (or feed the page saved answers).
+- Windy Webcams API v3: the page asks our Cloudflare Worker
+  (`https://family-windy.epkoski.workers.dev/`, code in `worker/windy.js`), which
+  adds the key. The key is a Cloudflare secret `WINDY_KEY`: never put it in the repo.
+  The Worker only passes on `webcamIds=` and `nearby=` questions, and only from
+  github.io and `localhost:8080`, so Windy tiles now work locally too.
+  To change the Worker: edit `worker/windy.js`, then paste it into Cloudflare's
+  editor (Workers & Pages → family-windy → Edit code) and Deploy.
+  Picture URLs can expire, so they're fetched fresh on load and every 10 min
+  (one batched `webcamIds=` request). Each picture links back to its Windy page;
+  footer credits windy.com.
 
 ## Daily camera check
 - `.github/workflows/check-cameras.yml` runs `scripts/check_cameras.py` every

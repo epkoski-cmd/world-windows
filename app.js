@@ -11,11 +11,10 @@
 const wall = document.getElementById("wall");
 const STORAGE_KEY = "worldwindows.places";
 
-// Key for the Windy Webcams API (free). Anyone can see it here, which is
-// normal for a site without a server: Windy only accepts it from github.io
-// pages, and if it's ever misused we make a new one at api.windy.com/keys.
-const WINDY_KEY = "QZSqtvmzCOG1oaPlge5gxlQmnSJwsSM3";
-const WINDY_API = "https://api.windy.com/webcams/api/v3/webcams";
+// Windy webcam questions go through our own small helper on Cloudflare
+// (worker/windy.js). It adds the Windy key, which is kept secret there,
+// so the key no longer appears in this public code.
+const WINDY_HELPER = "https://family-windy.epkoski.workers.dev/";
 
 // ============================================================
 //  Small helpers
@@ -1282,7 +1281,7 @@ sunriseStrip.addEventListener("click", () => {
 });
 
 // ============================================================
-//  Windy webcams (free API key, see WINDY_KEY at the top)
+//  Windy webcams (asked through WINDY_HELPER, see the top)
 // ============================================================
 //
 // Windy picture addresses can expire, so we don't save them. Instead we ask
@@ -1290,7 +1289,7 @@ sunriseStrip.addEventListener("click", () => {
 // one request for all the Windy cameras on the wall.
 
 function windyRequest(query) {
-  return fetch(`${WINDY_API}?${query}`, { headers: { "x-windy-api-key": WINDY_KEY } })
+  return fetch(`${WINDY_HELPER}?${query}`)
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`Windy said ${r.status}`))));
 }
 
