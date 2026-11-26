@@ -17,6 +17,9 @@
 //              or "image" (still picture reloaded every 10 min, needs `url`)
 //              or "windy" (a still webcam picture from windy.com, needs
 //              `windy`: the number at the end of the camera's windy.com address)
+//   lit      – (optional) true if the view is still worth seeing after dark
+//              (city lights, a lit harbour). At night, a place with two cameras
+//              starts on its lit one. Only set it after checking a night picture!
 //   replacedBy – (optional) id of the camera to show instead, when this one
 //              has stopped working. Old walls and links then still show a view.
 //

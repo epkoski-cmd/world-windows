@@ -414,3 +414,16 @@ body.editing .add-tile.armed { border-color: #2a6fdb; color: var(--text); backgr
   .swiper:hover .arrow:not([hidden]) { display: block; }
 }
 body.editing .edit-controls { flex-wrap: wrap; }
+
+/* "Lit at night" label, bottom left, on cameras that show something after dark */
+.view .night-tag {
+  position: absolute;
+  bottom: 10px; left: 10px;
+  background: rgba(20, 24, 60, 0.75);
+  color: #dfe4ff;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  z-index: 1;
+}
+.view .night-tag[hidden] { display: none; }

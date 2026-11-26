@@ -392,6 +392,12 @@ function makeView(slot) {
     view.classList.add("sky");
     view.append(el("span", "sky-icon", "…"));
   }
+  // Cameras that still show something after dark get a little label at night
+  if (cam && cam.lit) {
+    const tag = el("span", "night-tag", "🌙 Lit at night");
+    tag.hidden = true; // shown by pickCameraForTimeOfDay once we know it's night
+    view.append(tag);
+  }
   return view;
 }
 
@@ -435,6 +441,11 @@ function showYoutubePreview(slot) {
   if (!cam.livePreview) img.classList.add("promo");
 
   view.append(img, badge, play);
+  if (cam.lit) {
+    const tag = el("span", "night-tag", "🌙 Lit at night");
+    tag.hidden = place.isDay !== false;
+    view.append(tag);
+  }
 }
 
 function playYoutube(slot) {
@@ -515,6 +526,26 @@ function showingSlot(place, i) {
   }
   // The caption under the tile describes the camera you're looking at
   if (place.el) place.el.querySelector(".caption").textContent = cameraCaption(place, place.slots[i].cam);
+}
+
+// ---------- Night cameras ----------
+//
+// Some cameras still show something after dark (city lights, a lit harbour);
+// they have `lit: true` in cams.js. At night, a tile with two cameras starts
+// on its lit one, and in the morning it goes back to the first camera.
+// This only happens when day turns to night (or back), so if someone swipes
+// to the other camera, it stays there.
+function pickCameraForTimeOfDay(place) {
+  const isNight = place.isDay === false;
+  place.slots.forEach((slot) => {
+    const tag = slot.view.querySelector(".night-tag");
+    if (tag) tag.hidden = !isNight;
+  });
+  if (place.slots.length < 2 || place.pickedFor === place.isDay) return;
+  place.pickedFor = place.isDay; // remembered, so we only switch once
+  const lit = place.slots.findIndex((slot) => slot.cam.lit);
+  const wanted = isNight && lit >= 0 ? lit : 0;
+  if (wanted !== place.shown) scrollToSlot(place, wanted, false);
 }
 
 function makeTile(place, index) {
@@ -897,7 +928,8 @@ async function chooseCity(r, current) {
   // One suggested camera: its name, how far away it is, and a small picture
   const suggestion = (o, checked, parent) => {
     const thumb = camThumb(o.cam, windyPics, isNight);
-    const sub = [`${Math.round(o.km)} km away`, thumb && thumb.note].filter(Boolean).join(" · ");
+    const sub = [`${Math.round(o.km)} km away`, o.cam.lit && "lit at night", thumb && thumb.note]
+      .filter(Boolean).join(" · ");
     radio(`${o.cam.caption} · ${o.cam.where}`, sub, o.value, checked, thumb && thumb.el, parent);
   };
 
@@ -1166,6 +1198,7 @@ async function updateWeather() {
         showWindyPicture(slot);
         showRoadCamPicture(slot);
       });
+      pickCameraForTimeOfDay(place);
     });
     updateSunrise();
   } catch (err) {
