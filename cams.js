@@ -55,7 +55,10 @@ const CAMS = [
 
   // ---------- Spain ----------
   { id: "rincon-victoria-beach", where: "Rincón de la Victoria", lat: 36.717, lon: -4.278,
-    caption: "Beach cam · Malaga Live Cam", type: "youtube", video: "Ib0xbFBU9Wg", livePreview: true },
+    caption: "Beach cam · Malaga Live Cam", type: "youtube", video: "Ib0xbFBU9Wg", livePreview: true,
+    replacedBy: "rincon-victoria-beach-2" },
+  { id: "rincon-victoria-beach-2", where: "Rincón de la Victoria", lat: 36.717, lon: -4.278,
+    caption: "Live view · Malaga Live Cam", type: "youtube", video: "IAcLqLyzDMA" },
   { id: "sabinillas-beach", where: "Sabinillas, Manilva", lat: 36.369, lon: -5.228,
     caption: "Beach cam · SabinillasBeach", type: "youtube", video: "9nOjBJE9AUU" },
   { id: "sabinillas-promenade", where: "Sabinillas, Manilva", lat: 36.3691, lon: -5.2247,
