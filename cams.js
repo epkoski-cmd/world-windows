@@ -55,7 +55,10 @@ const CAMS = [
 
   // ---------- Spain ----------
   { id: "rincon-victoria-beach", where: "Rincón de la Victoria", lat: 36.717, lon: -4.278,
-    caption: "Beach cam · Malaga Live Cam", type: "youtube", video: "Ib0xbFBU9Wg", livePreview: true },
+    caption: "Beach cam · Malaga Live Cam", type: "youtube", video: "Ib0xbFBU9Wg", livePreview: true,
+    replacedBy: "rincon-victoria-beach-2" },
+  { id: "rincon-victoria-beach-2", where: "Rincón de la Victoria", lat: 36.717, lon: -4.278,
+    caption: "Live view · Malaga Live Cam", type: "youtube", video: "m0yQLdqvnpg" },
   { id: "sabinillas-beach", where: "Sabinillas, Manilva", lat: 36.369, lon: -5.228,
     caption: "Beach cam · SabinillasBeach", type: "youtube", video: "9nOjBJE9AUU" },
   { id: "sabinillas-promenade", where: "Sabinillas, Manilva", lat: 36.3691, lon: -5.2247,
@@ -80,7 +83,10 @@ const CAMS = [
     caption: "Hudson River, looking at Jersey City · Craig Nevill-Manning", type: "youtube",
     video: "kE_N1WY7UAY", livePreview: true },
   { id: "seaside-heights", where: "Seaside Heights, NJ", lat: 39.944, lon: -74.073,
-    caption: "Beach & boardwalk · EarthCam", type: "youtube", video: "OBgCrw-IyhE" },
+    caption: "Beach & boardwalk · EarthCam", type: "youtube", video: "OBgCrw-IyhE",
+    replacedBy: "seaside-heights-2" },
+  { id: "seaside-heights-2", where: "Seaside Heights, NJ", lat: 39.944, lon: -74.073,
+    caption: "Live view · ms36K", type: "youtube", video: "1l-nqyyhzro" },
   { id: "sf-bay-bridge", where: "Bay Bridge, San Francisco", lat: 37.7983, lon: -122.3778,
     caption: "Bay Bridge · ABC7 News", type: "youtube", video: "CXYr04BWvmc" },
 ];
